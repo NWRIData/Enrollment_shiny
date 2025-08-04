@@ -1,5 +1,3 @@
-# dropbox_api.py
-
 import os
 import dropbox
 from datetime import datetime
@@ -28,11 +26,14 @@ if not files:
 files.sort(key=lambda x: x.server_modified, reverse=True)
 latest = files[0]
 
+# Modify filename to add "Leo" before extension
+filename, ext = os.path.splitext(latest.name)
+new_filename = f"{filename}_Leo{ext}"
 
 # Create output dir and download
 os.makedirs("tracker/data", exist_ok=True)
-local_path = os.path.join("tracker/data", latest.name)
+local_path = os.path.join("tracker/data", new_filename)
 
 dbx.files_download_to_file(local_path, latest.path_display)
 
-print(f"Downloaded {latest.name} to {local_path}")
+print(f"Downloaded {latest.name} as {new_filename} to {local_path}")
