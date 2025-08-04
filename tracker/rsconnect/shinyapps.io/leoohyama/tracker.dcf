@@ -1,0 +1,12 @@
+name: tracker
+title: tracker
+username: leoohyama
+account: leoohyama
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 15049014
+bundleId: 10724263
+url: https://leoohyama.shinyapps.io/tracker/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
