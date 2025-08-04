@@ -1,0 +1,25 @@
+name: Daily Dropbox Download
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 12 * * *'
+  workflow_dispatch:
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install Python and Dropbox SDK
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-pip
+          pip3 install dropbox
+
+      - name: Run Python script
+        run: python pythondropbox.py
