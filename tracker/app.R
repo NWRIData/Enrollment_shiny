@@ -2,145 +2,15 @@ library(shiny)
 library(dplyr)
 library(ggplot2)
 library(tidyr)
-require(lubridate)
-
-#load old data
-olddata <- read.csv("data/olddata_test.csv")
-#load most recent data
-recentdata<-read.csv("data/enrollments_20250728.csv",
-                     sep = ",")
-
-#filter out unneeded columns
-olddata2<-olddata %>%
-  select(colnames(recentdata)) %>%
-  relocate(EnrollmentDate, .before = AdmissionDate)
-
-fdoe_enroll2<-rbind(olddata2, recentdata)
-
-cycles <- data.frame(
-  cycle_id = c('Y4', 'Y5'),
-  start_date = as.Date(c("2024-06-11", "2025-06-23")),
-  end_date = as.Date(c("2025-06-22", NA))  # NA for open-ended
-)
 
 
-
-
-app_data <- fdoe_enroll2 %>%
-  filter(EnrollmentDate > "2024-06-11", EnrollmentDate < "2025-06-23") %>%
-  select(NWRIEnrollmentID, DistrictName, AdmissionDate, EnrollmentDate) %>%
-  mutate(
-    cycle_id = case_when(
-      AdmissionDate >= as.Date("2024-06-11") & AdmissionDate <= as.Date("2025-06-22") ~ "Y4",
-      AdmissionDate >= as.Date("2025-06-23") ~ "Y5",
-      TRUE ~ NA_character_
-    )
-  )
-
-
-
-applied_not_enrolled<-app_data %>%
-  filter(is.na(cycle_id)) %>%
-  left_join(cycles, by = "cycle_id") %>%
-  mutate(
-    week_of_cycle = as.integer(floor(as.numeric(difftime(EnrollmentDate, start_date, units = "days")) / 7) + 1),
-    start_date_cycle = start_date + (week_of_cycle - 1) * 7,
-    end_date_cycle = start_date_cycle + 6
-  ) 
-
-app_data_enrolled<-app_data %>%
-  filter(!is.na(cycle_id)) %>%
-  left_join(cycles, by = "cycle_id") %>%
-  mutate(
-    week_of_cycle = as.integer(floor(as.numeric(difftime(AdmissionDate, start_date, units = "days")) / 7) + 1),
-    start_date_cycle = start_date + (week_of_cycle - 1) * 7,
-    end_date_cycle = start_date_cycle + 6
-  ) 
-
-
-max_week_old <- max(app_data_enrolled$week_of_cycle, na.rm = TRUE)
-max_week_curr <- max(app_data_enrolled %>%
-                       filter(cycle_id == "Y5") %>%
-                                pull(week_of_cycle), na.rm = TRUE)
-
-# Create full range from 1 to max_week
-olddataweek <- app_data_enrolled %>%
-  filter(cycle_id == "Y4") %>%
-  group_by(week_of_cycle,start_date_cycle) %>%
-  count(name = "n") %>%
-  ungroup() %>%
-  complete(week_of_cycle = 1:max_week_old, fill = list(n = 0)) %>%
-  arrange(week_of_cycle) %>%
-  mutate(
-    cumulative_applicants = cumsum(n)
-  ) %>%
-  mutate(Year = "Previous Year")
-
-olddataweek <- olddataweek %>%
-  mutate(start_date_cycle = if_else(
-    is.na(start_date_cycle),
-    lag(start_date_cycle) + 7,
-    start_date_cycle
-  ))
-
-curreentdataweek <- app_data_enrolled %>%
-  filter(cycle_id == "Y5") %>%
-  group_by(week_of_cycle,start_date_cycle) %>%
-  count(name = "n") %>%
-  ungroup() %>%
-  complete(week_of_cycle = 1:max_week_curr, fill = list(n = 0)) %>%
-  arrange(week_of_cycle) %>%
-  mutate(
-    cumulative_applicants = cumsum(n)
-  ) %>%
-  mutate(Year = "Current Year")
-
-curreentdataweek <- curreentdataweek %>%
-  mutate(start_date_cycle = if_else(
-    is.na(start_date_cycle),
-    lag(start_date_cycle) + 7,
-    start_date_cycle
-  ))
-
-totaldata = rbind(olddataweek,curreentdataweek)
-
-diff_total<-totaldata %>%
-  filter(week_of_cycle == max_week_curr) %>%
-  pivot_wider(id_cols = week_of_cycle, names_from = Year, values_from = c(n, cumulative_applicants))
+district_data<-readRDS("data/district_df/district_df2025-08-04.rds")
+totaldata<-readRDS("data/total_data/totaldata2025-08-04.rds")
+diff_total<-readRDS("data/diff_total/diff_total2025-08-04.rds")
 
 diff_week<-diff_total$`n_Current Year`-diff_total$`n_Previous Year`
 diff_total<-diff_total$`cumulative_applicants_Current Year`-diff_total$`cumulative_applicants_Previous Year`
 
-#complete the full range for all schools 
-
-district_df_old <- app_data_enrolled %>%
-  filter(cycle_id == "Y4") %>%
-  group_by(DistrictName, week_of_cycle) %>%
-  count(name = "n") %>%
-  ungroup() %>%
-  complete(DistrictName, week_of_cycle = 1:max_week_old, fill = list(n = 0)) %>%
-  arrange(DistrictName, week_of_cycle) %>%
-  group_by(DistrictName) %>%
-  mutate(cumulative_applicants = cumsum(n)) %>%
-  ungroup() %>%
-  drop_na(DistrictName) %>%
-  mutate(Year = "Previous year")
-
-
-district_df_current <- app_data_enrolled %>%
-  filter(cycle_id == "Y5") %>%
-  group_by(DistrictName, week_of_cycle) %>%
-  count(name = "n") %>%
-  ungroup() %>%
-  complete(DistrictName, week_of_cycle = 1:max_week_curr, fill = list(n = 0)) %>%
-  arrange(DistrictName, week_of_cycle) %>%
-  group_by(DistrictName) %>%
-  mutate(cumulative_applicants = cumsum(n)) %>%
-  ungroup() %>%
-  drop_na(DistrictName) %>%
-  mutate(Year = "Current year")
-
-district_data<-rbind(district_df_old, district_df_current)
 
 district_df<-unique(district_data$DistrictName)
 
@@ -198,6 +68,7 @@ server <- function(input, output){
   })
   
   graph_total = reactive({totaldata})
+  
   # Render the plot
   output$graphtotal <- renderPlot({
     ggplot(data = NULL) +
