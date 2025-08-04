@@ -29,4 +29,4 @@ jobs:
           Rscript -e 'install.packages("reticulate", repos = "https://cloud.r-project.org")'
 
       - name: Run R script
-        run: Rscript dropbox_.api.R  # Replace with actual path
+        run: Rscript dropbox_api.R  # Replace with actual path
