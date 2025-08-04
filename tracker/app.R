@@ -10,7 +10,7 @@ olddata <- read.csv("data/olddata_test.csv")
 recentdata<-read.csv("data/enrollments_20250728.csv",
                      sep = ",")
 
-
+#filter out unneeded columns
 olddata2<-olddata %>%
   select(colnames(recentdata)) %>%
   relocate(EnrollmentDate, .before = AdmissionDate)
