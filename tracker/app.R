@@ -91,6 +91,13 @@ curreentdataweek <- app_data_enrolled %>%
 
 totaldata = rbind(olddataweek,curreentdataweek)
 
+diff_total<-totaldata %>%
+  filter(week_of_cycle == max_week_curr) %>%
+  pivot_wider(id_cols = week_of_cycle, names_from = Year, values_from = c(n, cumulative_applicants))
+
+diff_week<-diff_total$`n_Current Year`-diff_total$`n_Previous Year`
+diff_total<-diff_total$`cumulative_applicants_Current Year`-diff_total$`cumulative_applicants_Previous Year`
+
 #complete the full range for all schools 
 
 district_df_old <- app_data_enrolled %>%
@@ -105,10 +112,6 @@ district_df_old <- app_data_enrolled %>%
   ungroup() %>%
   drop_na(DistrictName) %>%
   mutate(Year = "Previous year")
-
-
-
-
 
 
 district_df_current <- app_data_enrolled %>%
@@ -126,8 +129,6 @@ district_df_current <- app_data_enrolled %>%
 
 district_data<-rbind(district_df_old, district_df_current)
 
-#need to set a cut off and get rid of weeks 
-
 district_df<-unique(district_data$DistrictName)
 
 currentdate<-Sys.time()
@@ -138,6 +139,7 @@ ui <- fluidPage(
     tabPanel("Total Enrollment",
              fluidRow(
                column(width = 12,
+                      textOutput("enrollment_summary"),
                       h4("Total Enrollment Over Time"),
                       plotOutput("graphtotal", height = "400px")
                )
@@ -163,6 +165,21 @@ ui <- fluidPage(
 
 
 server <- function(input, output){
+  output$enrollment_summary <- renderText({
+    enrollment_week <- diff_week  # Replace with actual variable or calculation
+    enrollment_cumulative <- diff_total  # Same here
+    
+    direction <- if (enrollment_cumulative >= 0) "more" else "fewer"
+    cumulative_abs <- abs(enrollment_cumulative)
+    
+    paste0(
+      "This week, we have ", enrollment_week, 
+      " enrollees compared to the same day last year, and we also have ", 
+      cumulative_abs, " ", direction, 
+      " enrollees since the beginning of this year."
+    )
+  })
+  
   graph_total = reactive({totaldata})
   # Render the plot
   output$graphtotal <- renderPlot({
