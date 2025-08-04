@@ -1,6 +1,8 @@
 name: Daily Dropbox Download
 
 on:
+  push:
+    branches: [main]
   schedule:
     - cron: '0 12 * * *'  # Runs daily at 12:00 UTC
   workflow_dispatch:       # Also allow manual trigger from GitHub UI
