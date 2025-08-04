@@ -4,7 +4,10 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: '*/55 * * * *'  # every 55 minutes
+    # During daylight saving time (March–early November): 3 PM ET = 19:00 UTC
+    - cron: '0 19 * 3-11 *'
+    # During standard time (early November–March): 3 PM ET = 20:00 UTC
+    - cron: '0 20 * 1,2,12 *'
 
 jobs:
   deploy:

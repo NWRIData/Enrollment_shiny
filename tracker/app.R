@@ -66,7 +66,7 @@ max_week_curr <- max(app_data_enrolled %>%
 # Create full range from 1 to max_week
 olddataweek <- app_data_enrolled %>%
   filter(cycle_id == "Y4") %>%
-  group_by(week_of_cycle) %>%
+  group_by(week_of_cycle,start_date_cycle) %>%
   count(name = "n") %>%
   ungroup() %>%
   complete(week_of_cycle = 1:max_week_old, fill = list(n = 0)) %>%
@@ -76,10 +76,16 @@ olddataweek <- app_data_enrolled %>%
   ) %>%
   mutate(Year = "Previous Year")
 
+olddataweek <- olddataweek %>%
+  mutate(start_date_cycle = if_else(
+    is.na(start_date_cycle),
+    lag(start_date_cycle) + 7,
+    start_date_cycle
+  ))
 
 curreentdataweek <- app_data_enrolled %>%
   filter(cycle_id == "Y5") %>%
-  group_by(week_of_cycle) %>%
+  group_by(week_of_cycle,start_date_cycle) %>%
   count(name = "n") %>%
   ungroup() %>%
   complete(week_of_cycle = 1:max_week_curr, fill = list(n = 0)) %>%
@@ -88,6 +94,13 @@ curreentdataweek <- app_data_enrolled %>%
     cumulative_applicants = cumsum(n)
   ) %>%
   mutate(Year = "Current Year")
+
+curreentdataweek <- curreentdataweek %>%
+  mutate(start_date_cycle = if_else(
+    is.na(start_date_cycle),
+    lag(start_date_cycle) + 7,
+    start_date_cycle
+  ))
 
 totaldata = rbind(olddataweek,curreentdataweek)
 
@@ -133,13 +146,15 @@ district_df<-unique(district_data$DistrictName)
 
 currentdate<-Sys.time()
 updatetime<-paste("Last Updated at", currentdate)
+
+
 ui <- fluidPage(
   titlePanel(paste("Enrollment Progress NWRI", updatetime)),
   tabsetPanel(
     tabPanel("Total Enrollment",
              fluidRow(
                column(width = 12,
-                      textOutput("enrollment_summary"),
+                      uiOutput("enrollment_summary"),
                       h4("Total Enrollment Over Time"),
                       plotOutput("graphtotal", height = "400px")
                )
@@ -165,18 +180,20 @@ ui <- fluidPage(
 
 
 server <- function(input, output){
-  output$enrollment_summary <- renderText({
-    enrollment_week <- diff_week  # Replace with actual variable or calculation
-    enrollment_cumulative <- diff_total  # Same here
+  output$enrollment_summary <- renderUI({
+    enrollment_cumulative <- diff_total  # Still assuming this is precomputed
     
-    direction <- if (enrollment_cumulative >= 0) "more" else "fewer"
-    cumulative_abs <- abs(enrollment_cumulative)
+    directioncum <- if (enrollment_cumulative >= 0) "ahead" else "behind"
+    cumulative_abs_cum <- abs(enrollment_cumulative)
+    color <- if (enrollment_cumulative >= 0) "green" else "red"
     
-    paste0(
-      "This week, we have ", enrollment_week, 
-      " enrollees compared to the same day last year, and we also have ", 
-      cumulative_abs, " ", direction, 
-      " enrollees since the beginning of this year."
+    HTML(
+      paste0(
+        "<div style='font-size: 20px;'>We are currently ",
+        "<span style='color:", color, "; font-weight: bold;'>",
+        cumulative_abs_cum, " enrollees ", directioncum,
+        "</span> compared to the same time last year.</div>"
+      )
     )
   })
   
@@ -187,9 +204,13 @@ server <- function(input, output){
       geom_area(data = graph_total(), aes(x = week_of_cycle,
                                             y = cumulative_applicants,
                                             fill = Year)) +
+      geom_line(data = graph_total(), aes(x = week_of_cycle,
+                                          y = cumulative_applicants,
+                                          fill = Year)) +
       labs(title = paste("Enrollment Over Time"),
-           x = "Date", y = "Enrollment") +
-      theme_minimal()
+           x = "Weeks", y = "Enrollment") +
+      theme_minimal() +
+      theme(axis.title = element_text(size = 16))
   })
   
   # Reactive dataset based on selected district
