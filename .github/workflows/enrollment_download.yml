@@ -1,33 +1,30 @@
-name: Run Enrollment Script
+name: Daily Dropbox Download
 
 on:
   schedule:
-    - cron: '0,30 * * * *'   # Every 30 minutes
-  workflow_dispatch:
+    - cron: '0 12 * * *'  # Runs daily at 12:00 UTC
+  workflow_dispatch:       # Also allow manual trigger from GitHub UI
 
 jobs:
   run-script:
     runs-on: ubuntu-latest
 
-    env:
-      DB_HOST: ${{ secrets.DB_HOST }}
-      DB_NAME: ${{ secrets.DB_NAME }}
-      DB_USER: ${{ secrets.DB_USER }}
-      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
 
-      - name: Install dependencies
+      - name: Install Python + Dropbox SDK
         run: |
-          python -m pip install --upgrade pip
-          pip install pandas mysql-connector-python
+          sudo apt-get update
+          sudo apt-get install -y python3-pip
+          pip3 install dropbox
 
-      - name: Run script
-        run: python api_data.py
+      - name: Install R packages
+        run: |
+          Rscript -e 'install.packages("reticulate", repos = "https://cloud.r-project.org")'
+
+      - name: Run R script
+        run: Rscript dropbox_.api.R  # Replace with actual path
