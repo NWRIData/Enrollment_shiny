@@ -25,7 +25,7 @@ jobs:
       - name: Install required R packages
         run: |
           Rscript -e "install.packages('remotes', repos = 'https://cloud.r-project.org')"
-          Rscript -e "remotes::install_cran(c('curl', 'rsconnect'), dependencies = TRUE)"
+          Rscript -e "remotes::install_cran(c('curl', 'shiny', 'dplyr', 'ggplot2', 'tidyr', 'lubridate', 'rsconnect'), dependencies = TRUE)"
 
       - name: Deploy to shinyapps.io
         env:
