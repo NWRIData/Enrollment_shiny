@@ -4,12 +4,15 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: '0 12 * * *'  # Runs daily at 12:00 UTC
-  workflow_dispatch:       # Also allow manual trigger from GitHub UI
+    - cron: '0 12 * * *'
+  workflow_dispatch:
 
 jobs:
   run-script:
     runs-on: ubuntu-latest
+
+    env:
+      R_LIBS_USER: /home/runner/work/_temp/Library
 
     steps:
       - name: Checkout repo
@@ -27,6 +30,10 @@ jobs:
       - name: Install R packages
         run: |
           Rscript -e 'install.packages("reticulate", repos = "https://cloud.r-project.org")'
+        env:
+          R_LIBS_USER: ${{ env.R_LIBS_USER }}
 
       - name: Run R script
-        run: Rscript dropbox_api.R  # Replace with actual path
+        run: Rscript dropbox_api.R
+        env:
+          R_LIBS_USER: ${{ env.R_LIBS_USER }}
