@@ -29,10 +29,12 @@ file_info <- file_info[order(file_info$mtime, decreasing = TRUE), ]
 # Get the path of the most recently modified CSV file
 most_recent_csv <- rownames(file_info)[1]
 
+
 # Print it
 print(most_recent_csv)
 recentdata<-read.csv(most_recent_csv,
                      sep = ",")
+cat("Reading file from:", most_recent_csv, "\n")
 
 
 #filter out unneeded columns
@@ -72,6 +74,7 @@ applied_not_enrolled<-app_data %>%
     start_date_cycle = start_date + (week_of_cycle - 1) * 7,
     end_date_cycle = start_date_cycle + 6
   ) 
+
 saveRDS(applied_not_enrolled, file = here("tracker", "data","app_data",paste0("applicationdata",date,".rds")))
 
 app_data_enrolled<-app_data %>%
@@ -83,11 +86,17 @@ app_data_enrolled<-app_data %>%
     end_date_cycle = start_date_cycle + 6
   ) 
 
+wtf<-app_data_enrolled%>%
+  filter(cycle_id == "Y5")
+cat("legnth unique weekofcycle:",unique(wtf$week_of_cycle) , "\n")
+
 
 max_week_old <- max(app_data_enrolled$week_of_cycle, na.rm = TRUE)
 max_week_curr <- max(app_data_enrolled %>%
                        filter(cycle_id == "Y5") %>%
                        pull(week_of_cycle), na.rm = TRUE)
+
+
 
 # Create full range from 1 to max_week
 olddataweek <- app_data_enrolled %>%
