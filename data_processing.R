@@ -8,7 +8,7 @@ date<-Sys.Date()
 
 #this script processes the data for the shiny app to use
 #load old data
-olddata <- read.csv(here("tracker", "data","olddata_test.csv"))
+olddata <- read.csv(here("tracker", "data","Y4_data","olddata_test.csv"))
 
 
 #load most recent data
