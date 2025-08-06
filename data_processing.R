@@ -17,24 +17,21 @@ olddata <- read.csv(here("tracker", "data","Y4_data","olddata_test.csv"))
 # Specify the directory
 dir_path <- here("tracker", "data")
 
-# List all CSV files in the directory with full paths
-csv_files <- list.files(path = dir_path, pattern = "\\.csv$", full.names = TRUE)
+files <- list.files(here("tracker", "data"), pattern = "enrollments_\\d{8}\\.csv", full.names = TRUE)
 
-# Get file info (including modification time)
-file_info <- file.info(csv_files)
+# Extract dates from filenames
+dates <- as.Date(gsub(".*_(\\d{8})\\.csv", "\\1", files), format = "%Y%m%d")
 
-# Order by modification time (descending)
-file_info <- file_info[order(file_info$mtime, decreasing = TRUE), ]
+# Get the most recent based on the date in the filename
+latest_file <- files[which.max(dates)]
 
-# Get the path of the most recently modified CSV file
-most_recent_csv <- rownames(file_info)[1]
+cat("Latest file based on filename date:", latest_file, "\n")
 
 
 # Print it
-print(most_recent_csv)
-recentdata<-read.csv(most_recent_csv,
-                     sep = ",")
-cat("Reading file from:", most_recent_csv, "\n")
+print(latest_file)
+recentdata <- read.csv(latest_file)
+cat("Reading file from:", latest_file, "\n")
 
 
 #filter out unneeded columns
