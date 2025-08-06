@@ -9,10 +9,30 @@ date<-Sys.Date()
 #this script processes the data for the shiny app to use
 #load old data
 olddata <- read.csv(here("tracker", "data","olddata_test.csv"))
-#load most recent data
-recentdata<-read.csv(here("tracker", "data","enrollments_20250728.csv"),
-                     sep = ",")
 
+
+#load most recent data
+
+
+# Specify the directory
+dir_path <- here("tracker", "data")
+
+# List all CSV files in the directory with full paths
+csv_files <- list.files(path = dir_path, pattern = "\\.csv$", full.names = TRUE)
+
+# Get file info (including modification time)
+file_info <- file.info(csv_files)
+
+# Order by modification time (descending)
+file_info <- file_info[order(file_info$mtime, decreasing = TRUE), ]
+
+# Get the path of the most recently modified CSV file
+most_recent_csv <- rownames(file_info)[1]
+
+# Print it
+print(most_recent_csv)
+recentdata<-read.csv(most_recent_csv,
+                     sep = ",")
 
 
 #filter out unneeded columns

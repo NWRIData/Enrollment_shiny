@@ -4,9 +4,25 @@ library(ggplot2)
 library(tidyr)
 
 
-district_data<-readRDS("data/district_df/district_df2025-08-04.rds")
-totaldata<-readRDS("data/total_data/totaldata2025-08-04.rds")
-diff_total<-readRDS("data/diff_total/diff_total2025-08-04.rds")
+get_latest_rds <- function(dir_path, verbose = TRUE) {
+  rds_files <- list.files(path = dir_path, pattern = "\\.rds$", full.names = TRUE)
+  
+  if (length(rds_files) == 0) {
+    if (verbose) cat("No .rds files found in", dir_path, "\n")
+    return(NULL)
+  }
+  
+  file_info <- file.info(rds_files)
+  latest_file <- rownames(file_info)[which.max(file_info$mtime)]
+  
+  if (verbose) cat("Loaded file from:", latest_file, "\n")
+  
+  readRDS(latest_file)
+}
+district_data <- get_latest_rds("data/district_df")
+totaldata     <- get_latest_rds("data/total_data")
+diff_total    <- get_latest_rds("data/diff_total")
+
 
 diff_week<-diff_total$`n_Current Year`-diff_total$`n_Previous Year`
 diff_total<-diff_total$`cumulative_applicants_Current Year`-diff_total$`cumulative_applicants_Previous Year`
@@ -14,7 +30,7 @@ diff_total<-diff_total$`cumulative_applicants_Current Year`-diff_total$`cumulati
 
 district_df<-unique(district_data$DistrictName)
 
-currentdate<-Sys.time()
+currentdate<-Sys.Date()
 updatetime<-paste("Last Updated at", currentdate)
 
 

@@ -1,4 +1,4 @@
-name: Daily R Data Processing and Commit
+name: R Data Processing and Commit
 
 on:
   push:
