@@ -42,10 +42,18 @@ district_df <- unique(district_data$DistrictName)
 currentdate <- Sys.Date()
 updatetime  <- paste("Last Updated at", currentdate)
 
+# Theme
+my_theme <- bs_theme(
+  version = 5,
+  bootswatch = "zephyr",
+  primary = "#0066cc",
+  base_font = font_google("Roboto"),
+  heading_font = font_google("Montserrat")
+)
+
 # UI
 ui <- fluidPage(
-
-
+  theme = my_theme,
   titlePanel(paste("Enrollment Progress NWRI", updatetime)),
   navset_pill_list(
     widths = c(3, 9),  # left nav 3 columns, content 9 columns
@@ -71,7 +79,6 @@ ui <- fluidPage(
               uiOutput("lost_kids_summary")
     )
   )
-  
 )
 
 # Server

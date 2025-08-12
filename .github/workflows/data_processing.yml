@@ -28,6 +28,20 @@ jobs:
         with:
           persist-credentials: true  # needed for pushing commits
 
+      - name: Restore last processed cache
+        id: cache-last-processed
+        uses: actions/cache@v4
+        with:
+          path: tracker/data/last_processed.txt
+          key: last-processed-file
+
+      - name: Ensure last_processed.txt exists
+        run: |
+          mkdir -p tracker/data
+          if [ ! -f tracker/data/last_processed.txt ]; then
+            echo " " > tracker/data/last_processed.txt
+          fi
+
       - name: Set up R
         uses: r-lib/actions/setup-r@v2
 
@@ -39,10 +53,17 @@ jobs:
         run: |
           Rscript data_processing.R
 
+      - name: Save last processed file to cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: tracker/data/last_processed.txt
+          key: last-processed-file
+
       - name: Commit and push updated files
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add tracker/data/app_data/*.rds tracker/data/total_data/*.rds tracker/data/diff_total/*.rds tracker/data/district_df/*.rds
+          git add tracker/data/app_data/*.rds tracker/data/total_data/*.rds tracker/data/diff_total/*.rds tracker/data/district_df/*.rds tracker/data/last_processed.txt
           git diff --cached --quiet || git commit -m "Daily data update $(date -u +'%Y-%m-%d')"
           git push
