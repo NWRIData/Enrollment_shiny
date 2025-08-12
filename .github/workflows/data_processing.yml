@@ -33,7 +33,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: tracker/data/last_processed.txt
-          key: last-processed-file
+          key: last-processed-file-${{ hashFiles('tracker/data/last_processed.txt') }}
 
       - name: Ensure last_processed.txt exists
         run: |
@@ -55,10 +55,10 @@ jobs:
 
       - name: Save last processed file to cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache@v4
         with:
           path: tracker/data/last_processed.txt
-          key: last-processed-file
+          key: last-processed-file-${{ hashFiles('tracker/data/last_processed.txt') }}
 
       - name: Commit and push updated files
         run: |

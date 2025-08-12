@@ -54,12 +54,12 @@ my_theme <- bs_theme(
 # UI
 ui <- fluidPage(
   theme = my_theme,
-  titlePanel(paste("Enrollment Progress NWRI", updatetime)),
+  titlePanel(paste("NWRI Enrollment Progress", updatetime)),
   navset_pill_list(
     widths = c(3, 9),  # left nav 3 columns, content 9 columns
     nav_panel("Total Enrollment",
+              h4("Total Enrollment Over Time 2025-26"),
               uiOutput("enrollment_summary"),
-              h4("Total Enrollment Over Time"),
               plotOutput("graphtotal", height = "400px")
     ),
     nav_panel("District Enrollment",
