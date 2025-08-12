@@ -44,13 +44,8 @@ updatetime  <- paste("Last Updated at", currentdate)
 
 # UI
 ui <- fluidPage(
-  theme = bs_theme(
-    version = 5,
-    bootswatch = "flatly",  # Try "minty", "cosmo", "sandstone" etc.
-    base_font = font_google("Roboto"),
-    heading_font = font_google("Montserrat"),
-    primary = "#0066cc"
-  ),
+
+
   titlePanel(paste("Enrollment Progress NWRI", updatetime)),
   navset_pill_list(
     widths = c(3, 9),  # left nav 3 columns, content 9 columns

@@ -33,8 +33,6 @@ cat("Latest file based on filename date:", latest_file, "\n")
 # Read last processed filename if exists
 last_processed <- if (file.exists(last_processed_path)) {
   readLines(last_processed_path)
-  cat("file exists", readLines(last_processed_path))
-  
 } else {
   NA_character_
 }
