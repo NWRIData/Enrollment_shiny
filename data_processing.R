@@ -33,6 +33,8 @@ cat("Latest file based on filename date:", latest_file, "\n")
 # Read last processed filename if exists
 last_processed <- if (file.exists(last_processed_path)) {
   readLines(last_processed_path)
+  cat("file exists", readLines(last_processed_path))
+  
 } else {
   NA_character_
 }
@@ -43,7 +45,7 @@ if (!is.na(last_processed) && latest_file == last_processed) {
   quit(save = "no")  # Exit the script early
 }
 
-
+cat("writing new last processed path with this:",latest_file)
 # Otherwise, update last processed record
 writeLines(latest_file, last_processed_path)
 
