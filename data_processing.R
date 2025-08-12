@@ -43,10 +43,8 @@ lostkids<-recentdata %>%
 saveRDS(lostkids, file = here("tracker", "data","lostkids","raw", paste0("lost_kids_raw",date,".rds")))
 
 no_lost_kids<-nrow(lostkids)
-saveRDS(lostkids, file = here("tracker", "data","lostkids","count", paste0("lost_kids_count",date,".rds")))
+saveRDS(no_lost_kids, file = here("tracker", "data","lostkids","count", paste0("lost_kids_count",date,".rds")))
 
-diff_total<-readRDS("data/diff_total/diff_total2025-08-12.rds")
-diff_totalold<-readRDS("data/diff_total/diff_total2025-08-05.rds")
 
 
 #get rid of mappedschool
