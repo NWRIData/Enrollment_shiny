@@ -11,8 +11,10 @@ date<-Sys.Date()
 olddata <- read.csv(here("tracker", "data","Y4_data","olddata_test.csv"))
 district_code_data <- readRDS(here("tracker", "data","MSID","MSID_08112025.rds"))
 
-#load most recent data
 
+last_processed_path <- here("tracker", "data", "last_processed.txt")
+
+#load most recent data
 
 # Specify the directory
 dir_path <- here("tracker", "data")
@@ -27,6 +29,23 @@ latest_file <- files[which.max(dates)]
 
 cat("Latest file based on filename date:", latest_file, "\n")
 
+
+# Read last processed filename if exists
+last_processed <- if (file.exists(last_processed_path)) {
+  readLines(last_processed_path)
+} else {
+  NA_character_
+}
+
+# If latest file is same as last processed, skip processing
+if (!is.na(last_processed) && latest_file == last_processed) {
+  message("No new data file found. Skipping processing.")
+  quit(save = "no")  # Exit the script early
+}
+
+
+# Otherwise, update last processed record
+writeLines(latest_file, last_processed_path)
 
 # Print it
 print(latest_file)
