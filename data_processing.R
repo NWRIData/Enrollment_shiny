@@ -39,7 +39,7 @@ last_processed <- if (file.exists(last_processed_path)) {
 
 # If latest file is same as last processed, skip processing
 if (!is.na(last_processed) && latest_file == last_processed) {
-  message("No new data file found. Skipping processing.")
+  cat("No new data file found. Skipping processing.")
   quit(save = "no")  # Exit the script early
 }
 
