@@ -9,6 +9,7 @@ date<-Sys.Date()
 #this script processes the data for the shiny app to use
 #load old data
 olddata <- read.csv(here("tracker", "data","Y4_data","olddata_test.csv"))
+district_code_data <- readRDS(here("tracker", "data","MSID","MSID_08112025.rds"))
 
 
 #load most recent data
@@ -30,9 +31,56 @@ cat("Latest file based on filename date:", latest_file, "\n")
 
 # Print it
 print(latest_file)
-recentdata <- read.csv(latest_file)
+recentdata <- read.csv(latest_file, na.strings = c("NA", ""))
 cat("Reading file from:", latest_file, "\n")
 
+#save the lost kids:
+lostkids<-recentdata %>%
+  filter(is.na(district)) %>%
+  filter(!is.na(AdmissionDate))
+
+#save lost kids data:
+
+saveRDS(lostkids, file = here("tracker", "data","lostkids","raw", paste0("lost_kids_raw",date,".rds")))
+
+no_lost_kids<-nrow(lostkids)
+saveRDS(lostkids, file = here("tracker", "data","lostkids","count", paste0("lost_kids_count",date,".rds")))
+
+
+
+
+#get rid of mappedschool
+recentdata<-recentdata %>%
+  select(-MappedDOESchool) %>%
+  filter(!is.na(district))
+
+#clean up district names so they match up to the district names in the application and enrollment data
+district_code_data<-district_code_data %>%
+  distinct(DISTRICT ,DISTRICT_NAME) %>%
+  mutate(DISTRICT_NAME = ifelse(DISTRICT_NAME == "MIAMI-DADE", "MIAMI DADE", DISTRICT_NAME)) %>%
+  mutate(DISTRICT_NAME = ifelse(DISTRICT_NAME == "IDEA PUB SCH", "IDEA PUBLIC SCHOOLS", DISTRICT_NAME)) %>%
+  mutate(DISTRICT_NAME = ifelse(DISTRICT_NAME == "FAMU LAB SCH", "FAMU LAB SCHOOL", DISTRICT_NAME)) %>%
+  mutate(DISTRICT_NAME = ifelse(DISTRICT_NAME == "FAU LAB SCH", "FAU LAB SCHOOL", DISTRICT_NAME)) %>%
+  mutate(DISTRICT_NAME = ifelse(DISTRICT_NAME == "UF LAB SCH", "UF LAB SCHOOL", DISTRICT_NAME)) %>%
+  mutate(DISTRICT_NAME = ifelse(DISTRICT_NAME == "FSU LAB SCH", "FSU LAB SCHOOL", DISTRICT_NAME)) %>%
+  mutate(DISTRICT_NAME = ifelse(DISTRICT_NAME == "FL VIRTUAL", "VIRTUAL SCHOOL", DISTRICT_NAME)) %>%
+  mutate(DISTRICT_NAME = ifelse(DISTRICT_NAME == "DEAF/BLIND", "FLORIDA SCHOOL FOR THE DEAF & BLIND", DISTRICT_NAME)) %>%
+  rename(DistrictName = DISTRICT_NAME)
+
+#now join the old data with these new district names and codes
+olddata<-olddata %>%
+  rename(DISTRICT_NAME = DistrictName) %>%
+  rename(DistrictName = DISTRICT_NAME) %>%
+  mutate(DistrictName = toupper(DistrictName)) %>%
+  mutate(DistrictName = ifelse(DistrictName %in%  c("IDEA","IDEA CHARTER"), "IDEA PUBLIC SCHOOLS", DistrictName)) %>%
+  mutate(DistrictName = ifelse(DistrictName %in%  c("MATER"), "MIAMI DADE", DistrictName)) %>%
+  left_join(.,district_code_data, by = c("DistrictName")) 
+
+#fix up most recent data
+recentdata<-recentdata %>%
+  mutate(DistrictName = toupper(DistrictName)) %>%
+  rename(DISTRICT = district) %>%
+  select(-c(school,Grade))
 
 #filter out unneeded columns
 olddata2<-olddata %>%
@@ -83,9 +131,6 @@ app_data_enrolled<-app_data %>%
     end_date_cycle = start_date_cycle + 6
   ) 
 
-wtf<-app_data_enrolled%>%
-  filter(cycle_id == "Y5")
-cat("legnth unique weekofcycle:",unique(wtf$week_of_cycle) , "\n")
 
 
 max_week_old <- max(app_data_enrolled$week_of_cycle, na.rm = TRUE)
