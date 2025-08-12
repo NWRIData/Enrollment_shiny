@@ -11,7 +11,6 @@ date<-Sys.Date()
 olddata <- read.csv(here("tracker", "data","Y4_data","olddata_test.csv"))
 district_code_data <- readRDS(here("tracker", "data","MSID","MSID_08112025.rds"))
 
-
 #load most recent data
 
 
@@ -46,7 +45,8 @@ saveRDS(lostkids, file = here("tracker", "data","lostkids","raw", paste0("lost_k
 no_lost_kids<-nrow(lostkids)
 saveRDS(lostkids, file = here("tracker", "data","lostkids","count", paste0("lost_kids_count",date,".rds")))
 
-
+diff_total<-readRDS("data/diff_total/diff_total2025-08-12.rds")
+diff_totalold<-readRDS("data/diff_total/diff_total2025-08-05.rds")
 
 
 #get rid of mappedschool
@@ -120,7 +120,7 @@ applied_not_enrolled<-app_data %>%
     end_date_cycle = start_date_cycle + 6
   ) 
 
-saveRDS(applied_not_enrolled, file = here("tracker", "data","app_data",paste0("applicationdata",date,".rds")))
+saveRDS(applied_not_enrolled, file = here("tracker", "data","app_data", paste0("applicationdata",date,".rds")))
 
 app_data_enrolled<-app_data %>%
   filter(!is.na(cycle_id)) %>%

@@ -12,8 +12,13 @@ get_latest_rds <- function(dir_path, verbose = TRUE) {
     return(NULL)
   }
   
-  file_info <- file.info(rds_files)
-  latest_file <- rownames(file_info)[which.max(file_info$mtime)]
+  # Extract date from filename using regex
+  file_dates <- sub(".*?(\\d{4}-\\d{2}-\\d{1,2})\\.rds$", "\\1", basename(rds_files))
+  
+  # Convert to Date
+  file_dates <- as.Date(file_dates, format = "%Y-%m-%d")
+  
+  latest_file <- rds_files[which.max(file_dates)]
   
   if (verbose) cat("Loaded file from:", latest_file, "\n")
   
