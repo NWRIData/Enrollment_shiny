@@ -27,6 +27,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           persist-credentials: true  # needed for pushing commits
+          fetch-depth: 0  # fetch full history for rebase
 
       - name: Restore last processed cache
         id: cache-last-processed
@@ -60,10 +61,12 @@ jobs:
           path: tracker/data/last_processed.txt
           key: last-processed-file-${{ hashFiles('tracker/data/last_processed.txt') }}
 
-      - name: Commit and push updated files
+      - name: Commit and push updated files (rebase-safe)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
           git add tracker/data/app_data/*.rds tracker/data/total_data/*.rds tracker/data/diff_total/*.rds tracker/data/district_df/*.rds tracker/data/last_processed.txt
           git diff --cached --quiet || git commit -m "Daily data update $(date -u +'%Y-%m-%d')"
+          git pull --rebase origin main
           git push
