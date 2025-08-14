@@ -101,10 +101,12 @@ recentdata<-recentdata %>%
 
 #filter out unneeded columns
 olddata2<-olddata %>%
-  select(colnames(recentdata)) %>%
+  select(colnames(recentdata %>%
+                    select(-DistrictID))) %>%
   relocate(EnrollmentDate, .before = AdmissionDate)
 
-fdoe_enroll2<-rbind(olddata2, recentdata)
+fdoe_enroll2<-rbind(olddata2, recentdata %>%
+                      select(-DistrictID))
 
 cycles <- data.frame(
   cycle_id = c('Y4', 'Y5'),
