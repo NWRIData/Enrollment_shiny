@@ -5,17 +5,11 @@ on:
     branches: [main]
   schedule:
     # Weekdays only (1–5 = Mon–Fri)
-
     # DST: March–November
-    # 7 AM ET = 11:00 UTC
     - cron: '0 11 * 3-11 1-5'
-    # 3 PM ET = 19:00 UTC
     - cron: '0 19 * 3-11 1-5'
-
     # Standard Time: Jan, Feb, Dec
-    # 7 AM ET = 12:00 UTC
     - cron: '0 12 * 1,2,12 1-5'
-    # 3 PM ET = 20:00 UTC
     - cron: '0 20 * 1,2,12 1-5'
 
 jobs:
@@ -65,8 +59,16 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Pull latest changes first to ensure clean working directory
           git fetch origin main
-          git add tracker/data/app_data/*.rds tracker/data/total_data/*.rds tracker/data/diff_total/*.rds tracker/data/district_df/*.rds tracker/data/last_processed.txt
-          git diff --cached --quiet || git commit -m "Daily data update $(date -u +'%Y-%m-%d')"
           git pull --rebase origin main
+          
+          # Add updated files
+          git add tracker/data/app_data/*.rds tracker/data/total_data/*.rds tracker/data/diff_total/*.rds tracker/data/district_df/*.rds tracker/data/last_processed.txt
+          
+          # Commit only if there are changes
+          git diff --cached --quiet || git commit -m "Daily data update $(date -u +'%Y-%m-%d')"
+          
+          # Push back to main
           git push
