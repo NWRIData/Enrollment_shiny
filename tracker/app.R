@@ -3,6 +3,7 @@ library(dplyr)
 library(ggplot2)
 library(tidyr)
 library(bslib)
+library(viridis)
 
 
 # Function to get latest RDS based on filename date
@@ -173,7 +174,8 @@ server <- function(input, output){
       labs(title = "Enrollment Over Time",
            x = "Weeks", y = "Enrollment") +
       theme_minimal() +
-      theme(axis.title = element_text(size = 16))
+      theme(axis.title = element_text(size = 16)) +
+      scale_color_viridis_d()
   })
   
   # Filtered dataset for district plot
