@@ -4,6 +4,7 @@ library(ggplot2)
 library(tidyr)
 library(bslib)
 
+
 # Function to get latest RDS based on filename date
 get_latest_rds <- function(dir_path, verbose = TRUE) {
   rds_files <- list.files(path = dir_path, pattern = "\\.rds$", full.names = TRUE)
@@ -32,6 +33,11 @@ totaldata       <- get_latest_rds("data/total_data")
 diff_total_data <- get_latest_rds("data/diff_total")
 lost_kids_count <- get_latest_rds("data/lostkids/count")
 
+total_new_enroll<-totaldata %>%
+  filter(Year == "Current Year") %>%
+  pull(cumulative_applicants) %>%
+  sum()
+
 # Calculate differences
 diff_week  <- diff_total_data$`n_Current Year` - diff_total_data$`n_Previous Year`
 diff_total <- diff_total_data$`cumulative_applicants_Current Year` - 
@@ -56,15 +62,18 @@ ui <- fluidPage(
   theme = my_theme,
   titlePanel(paste("NWRI Enrollment Progress", updatetime)),
   navset_pill_list(
-    widths = c(3, 9),  # left nav 3 columns, content 9 columns
-    nav_panel("Total Enrollment",
-              h4("Total Enrollment Over Time 2025-26"),
+    widths = c(2, 10),  # left nav 3 columns, content 9 columns
+    nav_panel("Current & Total Enrollment",
+              div(style = "text-align: center;",
+                  h4("Total Enrollment Over Time 2025-26"),
+                  h4("Current Enrollment Over Time 2025-26")
+              ),
               uiOutput("enrollment_summary"),
               plotOutput("graphtotal", height = "400px")
     ),
     nav_panel("District Enrollment",
               sidebarLayout(
-                sidebarPanel(width = 3,
+                sidebarPanel(width = 2,
                              selectInput("District", "Select District",
                                          choices = district_df,
                                          selected = district_df[1])
@@ -117,6 +126,12 @@ server <- function(input, output){
   
   # Data for total enrollment plot
   graph_total <- reactive({ totaldata })
+  total_new_enroll <- reactive({
+    totaldata %>%
+      filter(Year == "Current Year") %>%
+      pull(n) %>%
+      sum()
+  })
   
   # Total enrollment plot
   output$graphtotal <- renderPlot({
@@ -127,7 +142,12 @@ server <- function(input, output){
       geom_line(data = graph_total(), aes(x = week_of_cycle,
                                           y = cumulative_applicants,
                                           fill = Year)) +
-      labs(title = paste("Enrollment Over Time"),
+      annotate("text",
+               x = Inf, y = Inf,
+               label = paste0("New enrolled students: ", format(total_new_enroll(), big.mark = ",")),
+               hjust = 1.3, vjust = 10, # adjust positioning relative to plot edges
+               size = 9, color = "black") +
+      labs(title = "Enrollment Over Time",
            x = "Weeks", y = "Enrollment") +
       theme_minimal() +
       theme(axis.title = element_text(size = 16))

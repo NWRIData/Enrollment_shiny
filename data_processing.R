@@ -54,7 +54,7 @@ cat("Reading file from:", latest_file, "\n")
 
 #save the lost kids:
 lostkids<-recentdata %>%
-  filter(is.na(district)) %>%
+  filter(is.na(DistrictID)) %>%
   filter(!is.na(AdmissionDate))
 
 #save lost kids data:
@@ -69,7 +69,7 @@ saveRDS(no_lost_kids, file = here("tracker", "data","lostkids","count", paste0("
 #get rid of mappedschool
 recentdata<-recentdata %>%
   select(-MappedDOESchool) %>%
-  filter(!is.na(district))
+  filter(!is.na(DistrictID))
 
 #clean up district names so they match up to the district names in the application and enrollment data
 district_code_data<-district_code_data %>%
@@ -96,8 +96,8 @@ olddata<-olddata %>%
 #fix up most recent data
 recentdata<-recentdata %>%
   mutate(DistrictName = toupper(DistrictName)) %>%
-  rename(DISTRICT = district) %>%
-  select(-c(school,Grade))
+  rename(DistrictID = DistrictID) %>%
+  select(-c(SchoolID,Grade))
 
 #filter out unneeded columns
 olddata2<-olddata %>%
@@ -129,7 +129,8 @@ app_data <- fdoe_enroll2 %>%
 
 
 applied_not_enrolled<-app_data %>%
-  filter(is.na(cycle_id)) %>%
+  filter(!is.na(cycle_id)) %>%
+  filter(is.na(AdmissionDate)) %>%
   left_join(cycles, by = "cycle_id") %>%
   mutate(
     week_of_cycle = as.integer(floor(as.numeric(difftime(EnrollmentDate, start_date, units = "days")) / 7) + 1),
@@ -149,6 +150,8 @@ app_data_enrolled<-app_data %>%
   ) 
 
 
+start_date_202425<-as.Date("2024-06-11")
+start_date_202526<-as.Date("2025-06-23")
 
 max_week_old <- max(app_data_enrolled$week_of_cycle, na.rm = TRUE)
 max_week_curr <- max(app_data_enrolled %>%
@@ -158,43 +161,47 @@ max_week_curr <- max(app_data_enrolled %>%
 
 
 # Create full range from 1 to max_week
+start_date_202425 <- as.Date("2024-06-11")
+
 olddataweek <- app_data_enrolled %>%
   filter(cycle_id == "Y4") %>%
-  group_by(week_of_cycle,start_date_cycle) %>%
-  count(name = "n") %>%
-  ungroup() %>%
-  complete(week_of_cycle = 1:max_week_old, fill = list(n = 0)) %>%
+  count(week_of_cycle, name = "n") %>%                 # don't group by start_date_cycle
+  complete(week_of_cycle = 1:max_week_old, fill = list(n = 0L)) %>%
+  mutate(
+    start_date_cycle = start_date_202425 + (week_of_cycle - 1) * 7
+  ) %>%
   arrange(week_of_cycle) %>%
   mutate(
-    cumulative_applicants = cumsum(n)
+    n_includingold = n,
+    n_includingold = if_else(row_number() == 1, 224375, n_includingold),   # set first n to 252000
+    cumulative_applicants = cumsum(n),
+    cumulative_n_includingold = cumsum(n_includingold)
   ) %>%
-  mutate(Year = "Previous Year")
+  mutate(Year = "Previous Year") %>%
+  ungroup()
 
-olddataweek <- olddataweek %>%
-  mutate(start_date_cycle = if_else(
-    is.na(start_date_cycle),
-    lag(start_date_cycle) + 7,
-    start_date_cycle
-  ))
 
-curreentdataweek <- app_data_enrolled %>%
+start_date_202526<-as.Date("2025-06-23")
+
+
+curreentdataweek<-app_data_enrolled %>%
   filter(cycle_id == "Y5") %>%
-  group_by(week_of_cycle,start_date_cycle) %>%
-  count(name = "n") %>%
-  ungroup() %>%
-  complete(week_of_cycle = 1:max_week_curr, fill = list(n = 0)) %>%
+  count(week_of_cycle, name = "n") %>%                 # don't group by start_date_cycle
+  complete(week_of_cycle = 1:max_week_old, fill = list(n = 0L)) %>%
+  mutate(
+    start_date_cycle = start_date_202526 + (week_of_cycle - 1) * 7
+  ) %>%
   arrange(week_of_cycle) %>%
   mutate(
-    cumulative_applicants = cumsum(n)
+    n_includingold = n,
+    n_includingold = if_else(row_number() == 1, 251797, n_includingold),   # set first n to 252000
+    cumulative_applicants = cumsum(n),
+    cumulative_n_includingold = cumsum(n_includingold)
   ) %>%
-  mutate(Year = "Current Year")
+  mutate(Year = "Current Year") %>%
+  ungroup() %>%
+  filter(! week_of_cycle > max_week_curr)
 
-curreentdataweek <- curreentdataweek %>%
-  mutate(start_date_cycle = if_else(
-    is.na(start_date_cycle),
-    lag(start_date_cycle) + 7,
-    start_date_cycle
-  ))
 
 totaldata = rbind(olddataweek,curreentdataweek)
 
