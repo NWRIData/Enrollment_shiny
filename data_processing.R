@@ -64,6 +64,8 @@ saveRDS(lostkids, file = here("tracker", "data","lostkids","raw", paste0("lost_k
 no_lost_kids<-nrow(lostkids)
 saveRDS(no_lost_kids, file = here("tracker", "data","lostkids","count", paste0("lost_kids_count",date,".rds")))
 
+#save a copy for grade levels
+recentdatacopy<-recentdata
 
 
 #get rid of mappedschool
@@ -114,11 +116,8 @@ cycles <- data.frame(
   end_date = as.Date(c("2025-06-22", NA))  # NA for open-ended
 )
 
-
-
-
 app_data <- fdoe_enroll2 %>%
-  filter(EnrollmentDate > "2024-06-11", EnrollmentDate < "2025-06-23") %>%
+  filter(EnrollmentDate > "2024-06-11") %>%
   select(NWRIEnrollmentID, DistrictName, AdmissionDate, EnrollmentDate) %>%
   mutate(
     cycle_id = case_when(
@@ -127,8 +126,6 @@ app_data <- fdoe_enroll2 %>%
       TRUE ~ NA_character_
     )
   )
-
-
 
 applied_not_enrolled<-app_data %>%
   filter(!is.na(cycle_id)) %>%
@@ -141,6 +138,26 @@ applied_not_enrolled<-app_data %>%
   ) 
 
 saveRDS(applied_not_enrolled, file = here("tracker", "data","app_data", paste0("applicationdata",date,".rds")))
+
+#here we make a dataset for grade-level-specific data
+grade_level_data<-recentdatacopy %>%
+  filter(EnrollmentDate > "2024-06-11") %>%
+  mutate(
+    cycle_id = case_when(
+      AdmissionDate >= as.Date("2024-06-11") & AdmissionDate <= as.Date("2025-06-22") ~ "Y4",
+      AdmissionDate >= as.Date("2025-06-23") ~ "Y5",
+      TRUE ~ NA_character_
+    )
+  ) %>%
+  drop_na(cycle_id) %>%
+  filter(!is.na(AdmissionDate)) %>%
+  left_join(cycles, by = "cycle_id")  %>%
+  mutate(
+    week_of_cycle = as.integer(floor(as.numeric(difftime(AdmissionDate, start_date, units = "days")) / 7) + 1),
+    start_date_cycle = start_date + (week_of_cycle - 1) * 7,
+    end_date_cycle = start_date_cycle + 6
+  ) 
+#####
 
 app_data_enrolled<-app_data %>%
   filter(!is.na(cycle_id)) %>%
@@ -163,7 +180,6 @@ max_week_curr <- max(app_data_enrolled %>%
 
 
 # Create full range from 1 to max_week
-start_date_202425 <- as.Date("2024-06-11")
 
 olddataweek <- app_data_enrolled %>%
   filter(cycle_id == "Y4") %>%
@@ -181,9 +197,6 @@ olddataweek <- app_data_enrolled %>%
   ) %>%
   mutate(Year = "Previous Year") %>%
   ungroup()
-
-
-start_date_202526<-as.Date("2025-06-23")
 
 
 curreentdataweek<-app_data_enrolled %>%
@@ -216,6 +229,48 @@ diff_total<-totaldata %>%
 
 saveRDS(diff_total, file = here("tracker", "data","diff_total",paste0("diff_total",date,".rds")))
 
+currentgrade_level_data<-grade_level_data %>%
+  filter(cycle_id == "Y5") %>%
+  group_by(week_of_cycle, Grade) %>%
+  count() %>%
+  ungroup() %>%
+  complete(week_of_cycle = 1:max_week_old,
+           Grade,
+           fill = list(n = 0L)) %>%
+  mutate(
+    start_date_cycle = start_date_202526 + (week_of_cycle - 1) * 7
+  ) %>%
+  arrange(week_of_cycle) %>%
+  group_by(Grade) %>%
+  mutate(
+    cumulative_applicants = cumsum(n) 
+    ) %>%
+  mutate(Year = "Current Year") %>%
+  ungroup() %>%
+  filter(! week_of_cycle > max_week_curr)
+  
+
+oldgrade_level_data<-grade_level_data %>%
+  filter(cycle_id == "Y4") %>%
+  group_by(week_of_cycle, Grade) %>%
+  count() %>%
+  ungroup() %>%
+  complete(week_of_cycle = 1:max_week_old,
+           Grade,
+           fill = list(n = 0L)) %>%
+  mutate(
+    start_date_cycle = start_date_202425 + (week_of_cycle - 1) * 7
+  ) %>%
+  arrange(week_of_cycle) %>%
+  group_by(Grade) %>%
+  mutate(
+    cumulative_applicants = cumsum(n) 
+  ) %>%
+  mutate(Year = "Previous Year") %>%
+  ungroup() 
+
+totalgrade = rbind(oldgrade_level_data,currentgrade_level_data)
+saveRDS(totalgrade, file = here("tracker", "data","grade_levels",paste0("grade_levels",date,".rds")))
 
 #complete the full range for all schools 
 

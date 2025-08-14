@@ -32,6 +32,11 @@ district_data   <- get_latest_rds("data/district_df")
 totaldata       <- get_latest_rds("data/total_data")
 diff_total_data <- get_latest_rds("data/diff_total")
 lost_kids_count <- get_latest_rds("data/lostkids/count")
+gradelevels<-get_latest_rds("data/grade_levels")
+
+print("Grade levels data preview:")
+print(head(gradelevels))
+print(dim(gradelevels)) 
 
 total_new_enroll<-totaldata %>%
   filter(Year == "Current Year") %>%
@@ -69,7 +74,9 @@ ui <- fluidPage(
                   h4("Current Enrollment Over Time 2025-26")
               ),
               uiOutput("enrollment_summary"),
-              plotOutput("graphtotal", height = "400px")
+              plotOutput("graphtotal", height = "400px"),
+              plotOutput("grade", height = "400px")
+              
     ),
     nav_panel("District Enrollment",
               sidebarLayout(
@@ -147,6 +154,22 @@ server <- function(input, output){
                label = paste0("New enrolled students: ", format(total_new_enroll(), big.mark = ",")),
                hjust = 1.3, vjust = 10, # adjust positioning relative to plot edges
                size = 9, color = "black") +
+      labs(title = "Enrollment Over Time",
+           x = "Weeks", y = "Enrollment") +
+      theme_minimal() +
+      theme(axis.title = element_text(size = 16))
+  })
+  
+  #  grade plot
+  grade_total <- reactive({ gradelevels })
+  output$grade <-renderPlot({
+    ggplot(data = NULL) +
+      geom_line(data = grade_total(), aes(x=week_of_cycle,
+                                        y= cumulative_applicants,
+                                        color = Grade)) +
+      
+      facet_wrap(~Year, nrow = 2,scales = "free_y") +
+      theme_light() +
       labs(title = "Enrollment Over Time",
            x = "Weeks", y = "Enrollment") +
       theme_minimal() +
