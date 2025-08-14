@@ -59,16 +59,21 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # Pull latest changes first to ensure clean working directory
-          git fetch origin main
+
+          # Stash any local changes to avoid pull conflicts
+          git stash push --include-untracked -m "autosave before rebase" || true
+
+          # Pull latest changes safely
           git pull --rebase origin main
-          
+
+          # Restore stashed changes
+          git stash pop || true
+
           # Add updated files
-          git add tracker/data/app_data/*.rds tracker/data/total_data/*.rds tracker/data/diff_total/*.rds tracker/data/district_df/*.rds tracker/data/last_processed.txt
-          
+          git add tracker/data/app_data/*.rds tracker/data/total_data/*.rds tracker/data/grade_levels/*.rds tracker/data/diff_total/*.rds tracker/data/district_df/*.rds tracker/data/last_processed.txt
+
           # Commit only if there are changes
           git diff --cached --quiet || git commit -m "Daily data update $(date -u +'%Y-%m-%d')"
-          
+
           # Push back to main
           git push
