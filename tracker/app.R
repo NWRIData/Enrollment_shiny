@@ -4,6 +4,7 @@ library(ggplot2)
 library(tidyr)
 library(bslib)
 library(viridis)
+library(scales)
 
 
 # Function to get latest RDS based on filename date
@@ -34,6 +35,7 @@ totaldata       <- get_latest_rds("data/total_data")
 diff_total_data <- get_latest_rds("data/diff_total")
 lost_kids_count <- get_latest_rds("data/lostkids/count")
 gradelevels<-get_latest_rds("data/grade_levels")
+pm_window<-get_latest_rds("data/PM_window_info")
 
 print("Grade levels data preview:")
 print(head(gradelevels))
@@ -70,15 +72,21 @@ ui <- fluidPage(
   navset_pill_list(
     widths = c(2, 10),  # left nav 3 columns, content 9 columns
     nav_panel("Current & Total Enrollment",
-              div(style = "text-align: center;",
-                  h4("Total Enrollment Over Time 2025-26"),
-                  h4("Current Enrollment Over Time 2025-26")
-              ),
               uiOutput("enrollment_summary"),
-              plotOutput("graphtotal", height = "400px"),
-              plotOutput("grade", height = "400px")
               
+              div(style = "text-align: center;",
+                  h4("Enrollment Projections 2025-26")),
+              plotOutput("graphtotalold", height = "400px"),
+              
+              div(style = "text-align: center;",
+                  h4("Current New Enrollments 2025-26")
+              ),
+              plotOutput("graphtotal", height = "400px")
     ),
+    nav_panel("Enrollment by grade",
+              plotOutput("grade", height = "600px")
+    ),
+              
     nav_panel("District Enrollment",
               sidebarLayout(
                 sidebarPanel(width = 2,
@@ -133,7 +141,7 @@ server <- function(input, output){
   })
   
   # Data for total enrollment plot
-  graph_total <- reactive({ totaldata })
+  graph_total <- reactive({ totaldata %>% filter(! Year == "Goal") })
   total_new_enroll <- reactive({
     totaldata %>%
       filter(Year == "Current Year") %>%
@@ -142,6 +150,43 @@ server <- function(input, output){
   })
   
   # Total enrollment plot
+  graph_totalold <- reactive({totaldata})
+  pm_windowdf<-reactive({pm_window})
+  
+  output$graphtotalold <- renderPlot({
+    ggplot(data = NULL) +
+      geom_rect(data = NULL,aes(xmin = 8,xmax = 14, ymin = -Inf, ymax = Inf), 
+                fill = "grey", alpha = 0.2) + 
+      annotate("text",
+               x = 11, y = 400000,
+               label = paste0("PM1"),
+               size = 9, color = "black") +
+      geom_rect(data = NULL,aes(xmin = 25,xmax = 31, ymin = -Inf, ymax = Inf), 
+                fill = "grey", alpha = 0.2) + 
+      annotate("text",
+               x = 28, y = 400000,
+               label = paste0("PM2"),
+               size = 9, color = "black") +
+      geom_rect(data = NULL,aes(xmin = 44,xmax = 49, ymin = -Inf, ymax = Inf), 
+                fill = "grey", alpha = 0.2) + 
+      annotate("text",
+               x = 46.5, y = 400000,
+               label = paste0("PM3"),
+               size = 9, color = "black") +
+      geom_line(data = graph_totalold(), aes(x = week_of_cycle,
+                                          y = cumulative_n_includingold,
+                                          color = Year,
+                                          lty = Year), size = 1.5) +
+      labs(title = "Enrollment Over Time",
+           x = "Weeks", y = "Enrollment") +
+      scale_y_continuous(labels = scales::label_number(suffix = "K", scale = 1e-3)) + 
+      theme_minimal() +
+      theme(axis.title = element_text(size = 16),
+            legend.text = element_text(size = 16),
+            legend.title = element_blank())
+  })
+  
+  #current only
   output$graphtotal <- renderPlot({
     ggplot(data = NULL) +
       geom_area(data = graph_total(), aes(x = week_of_cycle,
@@ -162,7 +207,7 @@ server <- function(input, output){
   })
   
   #  grade plot
-  grade_total <- reactive({ gradelevels })
+  grade_total <- reactive({gradelevels})
   output$grade <-renderPlot({
     ggplot(data = NULL) +
       geom_line(data = grade_total(), aes(x=week_of_cycle,

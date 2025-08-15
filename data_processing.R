@@ -217,8 +217,55 @@ curreentdataweek<-app_data_enrolled %>%
   ungroup() %>%
   filter(! week_of_cycle > max_week_curr)
 
+# Calculate the weekly increase needed to hit the goal
+goal_start <- 251797
+goal_end <- 400000
+goal_weeks <- max_week_old
+
+weekly_increase <- (goal_end - goal_start) / (goal_weeks - 1)
+
+goaldataweek <- tibble(
+  week_of_cycle = 1:goal_weeks,
+  start_date_cycle = start_date_202526 + (week_of_cycle - 1) * 7,
+  n_includingold = goal_start + (week_of_cycle - 1) * weekly_increase
+) %>%
+  mutate(
+    n = n_includingold - lag(n_includingold, default = n_includingold[1]),
+    cumulative_applicants = cumsum(n),
+    cumulative_n_includingold = n_includingold,  # already cumulative in this case
+    Year = "Goal"
+  )
+
 
 totaldata = rbind(olddataweek,curreentdataweek)
+
+#also make a column to discern when PM testing windows are occuring
+
+pm1start = as.Date("2025-08-04")
+pm1end = as.Date("2025-09-26")
+
+pm2start = as.Date("2025-12-01")
+pm2end = as.Date("2026-01-23")
+
+pm3start = as.Date("2026-04-13")
+pm3end = as.Date("2026-05-29")
+
+
+pm_window<-totaldata %>%
+  mutate(start_date_cycle_label = (start_date_cycle)) %>%
+  mutate(start_date_cycle = as.Date(start_date_cycle)) %>%
+  mutate(PM_window = case_when(
+    start_date_cycle > pm1start & start_date_cycle < pm1end ~ "PM1",
+    start_date_cycle > pm2start & start_date_cycle < pm2end~ "PM2",
+    start_date_cycle > pm3start & start_date_cycle < pm3end~ "PM3",
+    TRUE ~ NA
+    
+  )) %>%
+  filter(!is.na(PM_window)) %>%
+  filter(Year == "Goal") %>%
+  select(week_of_cycle, start_date_cycle, PM_window)
+saveRDS(pm_window, file = here("tracker", "data","PM_window_info",paste0("pm_window_info",date,".rds")))
+
 
 saveRDS(totaldata, file = here("tracker", "data","total_data",paste0("totaldata",date,".rds")))
 
