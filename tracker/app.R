@@ -212,7 +212,7 @@ server <- function(input, output){
     ggplot(data = NULL) +
       geom_line(data = grade_total(), aes(x=week_of_cycle,
                                         y= cumulative_applicants,
-                                        color = Grade)) +
+                                        color = Grade), size = 1.5) +
       
       facet_wrap(~Year, nrow = 2,scales = "free_y") +
       theme_light() +
@@ -220,7 +220,7 @@ server <- function(input, output){
            x = "Weeks", y = "Enrollment") +
       theme_minimal() +
       theme(axis.title = element_text(size = 16)) +
-      scale_color_viridis_d()
+      scale_color_viridis_d(option = "H")
   })
   
   # Filtered dataset for district plot
