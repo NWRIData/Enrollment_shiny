@@ -1,22 +1,11 @@
 name: Deploy Shiny App
 
 on:
-  push:
-    branches: [main]
-  schedule:
-    # Weekdays only (1–5 = Mon–Fri)
+  workflow_run:
+    workflows: ["R Data Processing and Commit"]   # must exactly match Workflow B's name
+    types:
+      - success   # or 'completed' if you want it to run even if Workflow B fails
 
-    # DST: March–November
-    # 7 AM ET = 11:00 UTC
-    - cron: '0 11 * 3-11 1-5'
-    # 3 PM ET = 19:00 UTC
-    - cron: '0 19 * 3-11 1-5'
-
-    # Standard Time: Jan, Feb, Dec
-    # 7 AM ET = 12:00 UTC
-    - cron: '0 12 * 1,2,12 1-5'
-    # 3 PM ET = 20:00 UTC
-    - cron: '0 20 * 1,2,12 1-5'
 
 jobs:
   deploy:

@@ -1,16 +1,10 @@
 name: R Data Processing and Commit
 
 on:
-  push:
-    branches: [main]
-  schedule:
-    # Weekdays only (1–5 = Mon–Fri)
-    # DST: March–November
-    - cron: '0 11 * 3-11 1-5'
-    - cron: '0 19 * 3-11 1-5'
-    # Standard Time: Jan, Feb, Dec
-    - cron: '0 12 * 1,2,12 1-5'
-    - cron: '0 20 * 1,2,12 1-5'
+  workflow_run:
+    workflows: ["Daily Dropbox Download"]   # must exactly match Workflow A's name
+    types:
+      - completed
 
 jobs:
   run-r-script:
