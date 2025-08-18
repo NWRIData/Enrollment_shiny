@@ -4,8 +4,7 @@ on:
   workflow_run:
     workflows: ["R Data Processing and Commit"]   # must exactly match Workflow B's name
     types:
-      - success   # or 'completed' if you want it to run even if Workflow B fails
-
+      - completed 
 
 jobs:
   deploy:
