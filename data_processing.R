@@ -237,7 +237,7 @@ goaldataweek <- tibble(
   )
 
 
-totaldata = rbind(olddataweek,curreentdataweek)
+totaldata = rbind(olddataweek,curreentdataweek,goaldataweek)
 
 #also make a column to discern when PM testing windows are occuring
 
@@ -264,6 +264,7 @@ pm_window<-totaldata %>%
   filter(!is.na(PM_window)) %>%
   filter(Year == "Goal") %>%
   select(week_of_cycle, start_date_cycle, PM_window)
+
 saveRDS(pm_window, file = here("tracker", "data","PM_window_info",paste0("pm_window_info",date,".rds")))
 
 

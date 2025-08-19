@@ -41,10 +41,6 @@ print("Grade levels data preview:")
 print(head(gradelevels))
 print(dim(gradelevels)) 
 
-total_new_enroll<-totaldata %>%
-  filter(Year == "Current Year") %>%
-  pull(cumulative_applicants) %>%
-  sum()
 
 # Calculate differences
 diff_week  <- diff_total_data$`n_Current Year` - diff_total_data$`n_Previous Year`
@@ -197,7 +193,8 @@ server <- function(input, output){
                                           fill = Year)) +
       annotate("text",
                x = Inf, y = Inf,
-               label = paste0("New enrolled students: ", format(total_new_enroll(), big.mark = ",")),
+               label = paste0("New enrolled students: ",
+                              format(total_new_enroll(), big.mark = ",")),
                hjust = 1.3, vjust = 10, # adjust positioning relative to plot edges
                size = 9, color = "black") +
       labs(title = "Enrollment Over Time",

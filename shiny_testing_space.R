@@ -6,6 +6,8 @@ diff_total_data <- readRDS("tracker/data/diff_total/diff_total2025-08-12.rds")
 lost_kids_count <- readRDS("tracker/data/lostkids/count/lost_kids_count2025-08-12.rds")
 lost_kids_count <- read.csv("tracker/data/enrollments_20250813.csv")
 
+totaldata2      <- readRDS("tracker/data/total_data/totaldata2025-08-18.rds")
+
 
 gradelevels <- readRDS("tracker/data/grade_levels/grade_levels2025-08-14.rds")
 
