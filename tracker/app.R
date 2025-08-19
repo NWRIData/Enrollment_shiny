@@ -158,7 +158,10 @@ server <- function(input, output, session){
       annotate("text", x = 46.5, y = 400000, label = "PM3", size = 9) +
       geom_line(data = totaldata(),
                 aes(x = week_of_cycle, y = cumulative_n_includingold,
-                    color = Year, lty = Year), size = 1.5) +
+                    color = Year), size = 1.5) +
+      geom_point(data = totaldata(),
+                aes(x = week_of_cycle, y = cumulative_n_includingold,
+                    fill = Year), size = 3, pch = 21, color = "white") +
       labs(title = "Enrollment Over Time", x = "Weeks", y = "Enrollment") +
       scale_y_continuous(labels = scales::label_number(suffix = "K", scale = 1e-3)) +
       theme_minimal() +
