@@ -97,6 +97,7 @@ olddata<-olddata %>%
 
 #fix up most recent data
 recentdata<-recentdata %>%
+  filter(EnrollmentDate > "2025-06-22") %>%
   mutate(DistrictName = toupper(DistrictName)) %>%
   rename(DistrictID = DistrictID) %>%
   select(-c(SchoolID,Grade))
