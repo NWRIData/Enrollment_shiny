@@ -220,7 +220,7 @@ curreentdataweek<-app_data_enrolled %>%
 
 # Calculate the weekly increase needed to hit the goal
 goal_start <- 251797
-goal_end <- 400000
+goal_end <- 375000
 goal_weeks <- max_week_old
 
 weekly_increase <- (goal_end - goal_start) / (goal_weeks - 1)

@@ -192,11 +192,16 @@ server <- function(input, output, session){
     ggplot(data = gradelevels()) +
       geom_line(aes(x = week_of_cycle, y = cumulative_applicants, color = Grade),
                 size = 1.5) +
+      geom_point(
+                 aes(x = week_of_cycle, y = cumulative_applicants,
+                     fill = Grade), size = 3, pch = 21, color = "white") +
       facet_wrap(~Year, nrow = 2, scales = "free_y") +
       labs(title = "Enrollment Over Time", x = "Weeks", y = "Enrollment") +
       theme_minimal() +
       theme(axis.title = element_text(size = 16)) +
-      scale_color_viridis_d(option = "H")
+      scale_color_viridis_d(option = "H")+
+      scale_fill_viridis_d(option = "H")
+    
   })
   
   # District selector (dynamic after data loads)
