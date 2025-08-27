@@ -122,8 +122,8 @@ app_data <- fdoe_enroll2 %>%
   select(NWRIEnrollmentID, DistrictName, AdmissionDate, EnrollmentDate) %>%
   mutate(
     cycle_id = case_when(
-      AdmissionDate >= as.Date("2024-06-11") & AdmissionDate <= as.Date("2025-06-22") ~ "Y4",
-      AdmissionDate >= as.Date("2025-06-23") ~ "Y5",
+      EnrollmentDate >= as.Date("2024-06-11") & EnrollmentDate <= as.Date("2025-06-22") & AdmissionDate >= as.Date("2024-06-11") & AdmissionDate <= as.Date("2025-06-22") ~ "Y4",
+      EnrollmentDate >= as.Date("2025-06-23") & AdmissionDate >= as.Date("2025-06-23") ~ "Y5",
       TRUE ~ NA_character_
     )
   )
