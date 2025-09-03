@@ -97,7 +97,7 @@ olddata<-olddata %>%
 
 #fix up most recent data
 recentdata<-recentdata %>%
-  filter(EnrollmentDate > "2025-06-22") %>%
+  filter(AdmissionDate > "2025-06-22") %>%
   mutate(DistrictName = toupper(DistrictName)) %>%
   rename(DistrictID = DistrictID) %>%
   select(-c(SchoolID,Grade))
@@ -118,12 +118,12 @@ cycles <- data.frame(
 )
 
 app_data <- fdoe_enroll2 %>%
-  filter(EnrollmentDate > "2024-06-11") %>%
+  filter(AdmissionDate > "2024-06-11") %>%
   select(NWRIEnrollmentID, DistrictName, AdmissionDate, EnrollmentDate) %>%
   mutate(
     cycle_id = case_when(
-      EnrollmentDate >= as.Date("2024-06-11") & EnrollmentDate <= as.Date("2025-06-22") & AdmissionDate >= as.Date("2024-06-11") & AdmissionDate <= as.Date("2025-06-22") ~ "Y4",
-      EnrollmentDate >= as.Date("2025-06-23") & AdmissionDate >= as.Date("2025-06-23") ~ "Y5",
+      AdmissionDate >= as.Date("2024-06-11") & AdmissionDate <= as.Date("2025-06-22") ~ "Y4",
+      AdmissionDate >= as.Date("2025-06-23") ~ "Y5",
       TRUE ~ NA_character_
     )
   )
@@ -142,7 +142,6 @@ saveRDS(applied_not_enrolled, file = here("tracker", "data","app_data", paste0("
 
 #here we make a dataset for grade-level-specific data
 grade_level_data<-recentdatacopy %>%
-  filter(EnrollmentDate > "2024-06-11") %>%
   mutate(
     cycle_id = case_when(
       AdmissionDate >= as.Date("2024-06-11") & AdmissionDate <= as.Date("2025-06-22") ~ "Y4",
