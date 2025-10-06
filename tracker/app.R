@@ -31,13 +31,13 @@ updatetime  <- paste("Last Updated at", currentdate)
 my_theme <- bs_theme(
   version = 5,
   bootswatch = "minty",
-  primary = "#0072e3",
+  primary = "#002657",
   base_font = font_google("Poppins"),
   heading_font = font_google("Poppins")
 ) |> 
   bs_add_rules("
     .navbar {
-      background-color: #004b9b !important; /* navbar fill color */
+      background-color: #002657 !important; /* navbar fill color */
     }
     .navbar-brand {
       color: white !important;
@@ -53,18 +53,42 @@ my_theme <- bs_theme(
       border-radius: 0.5rem;
     }
   ")
+
+
 ui <- page_sidebar(
-  title = paste("NWRI Enrollment Progress", Sys.Date()),
+  title = paste("New Worlds Reading Dashboard"),
   theme = my_theme,
   collapsible = TRUE,
+  # Add custom CSS
+  tags$head(
+    tags$style(HTML("
+      /* Change active tab text color */
+      .nav-link.active {
+        color: #FA4616 !important;
+        font-weight: bold;
+      }
+      
+      /* Optional: subtle hover color for consistency */
+      .nav-link:hover {
+        color: #FA4616 !important;
+      }
+    "))
+  ),
+  
   
   # Sidebar navigation as clickable menu
   sidebar = sidebar(
-    navset_tab(
+    navset_tab( footer = HTML(
+      paste0(
+        "<span style='font-size: 0.85em; font-style: italic;'>Last updated at: ",
+        Sys.Date(),
+        "</span>"
+      )
+    ),
       id = "nav",
       nav_panel("Current & Total Enrollment", value = "current_total"),
-      nav_panel("Enrollment by grade", value = "by_grade"),
       nav_panel("District Enrollment", value = "district"),
+      nav_panel("Enrollment by grade", value = "by_grade"),
       nav_panel("Lost Kids", value = "lost_kids")
     )
   ),
@@ -77,29 +101,40 @@ server <- function(input, output, session){
   
   # Dynamic tab content
   output$tab_content <- renderUI({
-    switch(input$nav,
-           
-           "current_total" = tagList(
-             uiOutput("enrollment_summary"),
-             div(style = "text-align: center;",
-                 h4("Enrollment Projections 2025-26")),
-             plotOutput("graphtotalold", height = "400px"),
-             div(style = "text-align: center;",
-                 h4("Current New Enrollments 2025-26")),
-             plotOutput("graphtotal", height = "400px")
-           ),
-           
-           "by_grade" = plotOutput("grade", height = "600px"),
-           
-           "district" = tagList(
-             h4("Enrollment Over Time by District"),
-             uiOutput("district_selector"),
-             plotOutput("fc_plot", height = "400px")
-           ),
-           
-           "lost_kids" = uiOutput("lost_kids_summary")
-    )
+    if (input$nav == "current_total") {
+      tagList(
+        uiOutput("enrollment_summary"),
+        card(
+          full_screen = TRUE,
+          card_header("Enrollment Details"),
+          navset_tab(
+            id = "enrollment_tabs",
+            nav_panel("Enrollment Projection",
+                      div(style = "text-align:center;",
+                          h4("Enrollment Projections 2025-26")),
+                      plotOutput("graphtotalold", height = "400px")
+            ),
+            nav_panel("Current New Enrollments",
+                      div(style = "text-align:center;",
+                          h4("Current New Enrollments 2025-26")),
+                      plotOutput("graphtotal", height = "400px")
+            )
+          )
+        )
+      )
+    } else if (input$nav == "district") {
+      tagList(
+        h4("Enrollment Over Time by District"),
+        uiOutput("district_selector"),
+        plotOutput("fc_plot", height = "400px")
+      )
+    } else if (input$nav == "by_grade") {
+      plotOutput("grade", height = "600px")
+    } else if (input$nav == "lost_kids") {
+      uiOutput("lost_kids_summary")
+    }
   })
+  
   
   # Reactive values for lazy-loading
   district_data   <- reactiveVal(NULL)
