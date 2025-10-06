@@ -98,6 +98,10 @@ ui <- page_sidebar(
 )
 
 server <- function(input, output, session){
+  # Store persistent selected points from brushing
+  selected_points <- reactiveVal(NULL)
+  
+  
   
   # Dynamic tab content
   output$tab_content <- renderUI({
@@ -112,7 +116,9 @@ server <- function(input, output, session){
             nav_panel("Enrollment Projection",
                       div(style = "text-align:center;",
                           h4("Enrollment Projections 2025-26")),
-                      plotOutput("graphtotalold", height = "400px")
+                      plotOutput("graphtotalold", height = "400px",
+                                 brush = brushOpts(id = "plot_brush", resetOnNew = TRUE)),
+                      tableOutput("selected_points")  # optional: show selected values
             ),
             nav_panel("Current New Enrollments",
                       div(style = "text-align:center;",
@@ -208,9 +214,20 @@ server <- function(input, output, session){
       sum()
   })
   
+  observeEvent(input$plot_brush, {
+    brush <- input$plot_brush
+    req(brush)
+    
+    d <- totaldata()
+    sel <- brushedPoints(d, brush, xvar = "week_of_cycle", yvar = "cumulative_n_includingold")
+    if (nrow(sel) > 0) selected_points(sel)
+  })
+  
   output$graphtotalold <- renderPlot({
     req(totaldata())
-    ggplot(data = NULL) +
+    d <- totaldata()
+    
+    base_plot <- ggplot(data = NULL) +
       geom_rect(aes(xmin = 8,xmax = 14, ymin = -Inf, ymax = Inf),
                 fill = "grey", alpha = 0.2) +
       annotate("text", x = 11, y = 400000, label = "PM1", size = 9) +
@@ -220,10 +237,10 @@ server <- function(input, output, session){
       geom_rect(aes(xmin = 44,xmax = 49, ymin = -Inf, ymax = Inf),
                 fill = "grey", alpha = 0.2) +
       annotate("text", x = 46.5, y = 400000, label = "PM3", size = 9) +
-      geom_line(data = totaldata(),
+      geom_line(data = d,
                 aes(x = week_of_cycle, y = cumulative_n_includingold,
                     color = Year), size = 1.5) +
-      geom_point(data = totaldata(),
+      geom_point(data = d,
                  aes(x = week_of_cycle, y = cumulative_n_includingold,
                      fill = Year), size = 3, pch = 21, color = "white") +
       labs(title = "Enrollment Over Time", x = "Weeks", y = "Enrollment") +
@@ -233,7 +250,27 @@ server <- function(input, output, session){
             axis.text = element_text(size = 14),
             legend.text = element_text(size = 16),
             legend.title = element_blank())
+    
+    # Highlight persistent selected points
+    if (!is.null(selected_points())) {
+      np <- selected_points()
+      base_plot <- base_plot +
+        geom_point(data = np, aes(x = week_of_cycle, y = cumulative_n_includingold),
+                   color = "orange", size = 4) +
+        geom_text(data = np,
+                  aes(x = week_of_cycle, y = cumulative_n_includingold,
+                      label = scales::comma(cumulative_n_includingold)),
+                  vjust = -1, color = "orange", size = 5, fontface = "bold")
+    }
+    
+    base_plot
   })
+  
+  output$selected_points <- renderTable({
+    req(selected_points())
+    selected_points()
+  })
+  
   
   output$graphtotal <- renderPlot({
     req(graph_total())
