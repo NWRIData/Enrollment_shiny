@@ -30,15 +30,34 @@ updatetime  <- paste("Last Updated at", currentdate)
 # Theme
 my_theme <- bs_theme(
   version = 5,
-  bootswatch = "zephyr",
-  primary = "#0066cc",
-  base_font = font_google("Roboto"),
-  heading_font = font_google("Montserrat")
-)
+  bootswatch = "minty",
+  primary = "#0072e3",
+  base_font = font_google("Poppins"),
+  heading_font = font_google("Poppins")
+) |> 
+  bs_add_rules("
+    .navbar {
+      background-color: #004b9b !important; /* navbar fill color */
+    }
+    .navbar-brand {
+      color: white !important;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+    .navbar-nav .nav-link {
+      color: white !important;
+      font-weight: 500;
+    }
+    .navbar-nav .nav-link.active {
+      background-color: rgba(255,255,255,0.15);
+      border-radius: 0.5rem;
+    }
+  ")
 
 # UI
 ui <- fluidPage(
   theme = my_theme,
+  collapsible = TRUE,
   titlePanel(paste("NWRI Enrollment Progress", updatetime)),
   navset_pill_list(
     widths = c(2, 10),
