@@ -53,46 +53,55 @@ my_theme <- bs_theme(
       border-radius: 0.5rem;
     }
   ")
-
-# UI
-ui <- fluidPage(
+ui <- page_sidebar(
+  title = paste("NWRI Enrollment Progress", Sys.Date()),
   theme = my_theme,
   collapsible = TRUE,
-  titlePanel(paste("NWRI Enrollment Progress", updatetime)),
-  navset_pill_list(
-    widths = c(2, 10),
-    id = "nav",   # important: gives us input$nav to know which tab is open
-    nav_panel("Current & Total Enrollment",
-              uiOutput("enrollment_summary"),
-              div(style = "text-align: center;",
-                  h4("Enrollment Projections 2025-26")),
-              plotOutput("graphtotalold", height = "400px"),
-              div(style = "text-align: center;",
-                  h4("Current New Enrollments 2025-26")),
-              plotOutput("graphtotal", height = "400px")
-    ),
-    nav_panel("Enrollment by grade",
-              plotOutput("grade", height = "600px")
-    ),
-    nav_panel("District Enrollment",
-              sidebarLayout(
-                sidebarPanel(width = 2,
-                             uiOutput("district_selector")),
-                mainPanel(width = 9,
-                          h4("Enrollment Over Time by District"),
-                          plotOutput("fc_plot", height = "400px")
-                )
-              )
-    ),
-    nav_panel("Lost Kids",
-              uiOutput("lost_kids_summary")
+  
+  # Sidebar navigation as clickable menu
+  sidebar = sidebar(
+    navset_tab(
+      id = "nav",
+      nav_panel("Current & Total Enrollment", value = "current_total"),
+      nav_panel("Enrollment by grade", value = "by_grade"),
+      nav_panel("District Enrollment", value = "district"),
+      nav_panel("Lost Kids", value = "lost_kids")
     )
-  )
+  ),
+  
+  # Main content dynamically rendered
+  uiOutput("tab_content")
 )
 
-# Server
 server <- function(input, output, session){
-  # Create reactiveVals to load data only when needed
+  
+  # Dynamic tab content
+  output$tab_content <- renderUI({
+    switch(input$nav,
+           
+           "current_total" = tagList(
+             uiOutput("enrollment_summary"),
+             div(style = "text-align: center;",
+                 h4("Enrollment Projections 2025-26")),
+             plotOutput("graphtotalold", height = "400px"),
+             div(style = "text-align: center;",
+                 h4("Current New Enrollments 2025-26")),
+             plotOutput("graphtotal", height = "400px")
+           ),
+           
+           "by_grade" = plotOutput("grade", height = "600px"),
+           
+           "district" = tagList(
+             h4("Enrollment Over Time by District"),
+             uiOutput("district_selector"),
+             plotOutput("fc_plot", height = "400px")
+           ),
+           
+           "lost_kids" = uiOutput("lost_kids_summary")
+    )
+  })
+  
+  # Reactive values for lazy-loading
   district_data   <- reactiveVal(NULL)
   totaldata       <- reactiveVal(NULL)
   diff_total_data <- reactiveVal(NULL)
@@ -100,20 +109,20 @@ server <- function(input, output, session){
   gradelevels     <- reactiveVal(NULL)
   pm_window       <- reactiveVal(NULL)
   
-  # Load data lazily when tab is opened
+  # Load data lazily when a tab is opened
   observeEvent(input$nav, {
-    if (input$nav == "Current & Total Enrollment" && is.null(totaldata())) {
+    if (input$nav == "current_total" && is.null(totaldata())) {
       totaldata(get_latest_rds("data/total_data"))
       diff_total_data(get_latest_rds("data/diff_total"))
       pm_window(get_latest_rds("data/PM_window_info"))
     }
-    if (input$nav == "Enrollment by grade" && is.null(gradelevels())) {
+    if (input$nav == "by_grade" && is.null(gradelevels())) {
       gradelevels(get_latest_rds("data/grade_levels"))
     }
-    if (input$nav == "District Enrollment" && is.null(district_data())) {
+    if (input$nav == "district" && is.null(district_data())) {
       district_data(get_latest_rds("data/district_df"))
     }
-    if (input$nav == "Lost Kids" && is.null(lost_kids_count())) {
+    if (input$nav == "lost_kids" && is.null(lost_kids_count())) {
       lost_kids_count(get_latest_rds("data/lostkids/count"))
     }
   })
@@ -179,8 +188,8 @@ server <- function(input, output, session){
                 aes(x = week_of_cycle, y = cumulative_n_includingold,
                     color = Year), size = 1.5) +
       geom_point(data = totaldata(),
-                aes(x = week_of_cycle, y = cumulative_n_includingold,
-                    fill = Year), size = 3, pch = 21, color = "white") +
+                 aes(x = week_of_cycle, y = cumulative_n_includingold,
+                     fill = Year), size = 3, pch = 21, color = "white") +
       labs(title = "Enrollment Over Time", x = "Weeks", y = "Enrollment") +
       scale_y_continuous(labels = scales::label_number(suffix = "K", scale = 1e-3)) +
       theme_minimal() +
@@ -211,19 +220,17 @@ server <- function(input, output, session){
     ggplot(data = gradelevels()) +
       geom_line(aes(x = week_of_cycle, y = cumulative_applicants, color = Grade),
                 size = 1.5) +
-      geom_point(
-                 aes(x = week_of_cycle, y = cumulative_applicants,
+      geom_point(aes(x = week_of_cycle, y = cumulative_applicants,
                      fill = Grade), size = 3, pch = 21, color = "white") +
       facet_wrap(~Year, nrow = 2, scales = "free_y") +
       labs(title = "Enrollment Over Time", x = "Weeks", y = "Enrollment") +
       theme_minimal() +
       theme(axis.title = element_text(size = 16)) +
-      scale_color_viridis_d(option = "H")+
+      scale_color_viridis_d(option = "H") +
       scale_fill_viridis_d(option = "H")
-    
   })
   
-  # District selector (dynamic after data loads)
+  # District selector (dynamic)
   output$district_selector <- renderUI({
     req(district_data())
     selectInput("District", "Select District",
@@ -246,5 +253,4 @@ server <- function(input, output, session){
   })
 }
 
-# Run the app
 shinyApp(ui, server)
