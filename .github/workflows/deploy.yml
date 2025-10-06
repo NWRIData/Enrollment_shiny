@@ -1,15 +1,104 @@
-name: Deploy Shiny App
+name: Daily Data Pipeline and Shiny Deployment
 
 on:
-  workflow_run:
-    workflows: ["R Data Processing and Commit"]   # must exactly match Workflow B's name
-    types:
-      - completed 
+  push:
+    branches: [main]
+  schedule:
+    # Weekdays only (1–5 = Mon–Fri)
+    # DST: March–November
+    - cron: '0 11 * 3-11 1-5' # 7 AM ET
+    - cron: '0 19 * 3-11 1-5' # 3 PM ET
+    # Standard Time: Jan, Feb, Dec
+    - cron: '0 12 * 1,2,12 1-5' # 7 AM ET
+    - cron: '0 20 * 1,2,12 1-5' # 3 PM ET
+  workflow_dispatch:
 
 jobs:
-  deploy:
+  download:
+    name: Download Data from Dropbox
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
+      - name: Install Python and Dropbox SDK
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-pip
+          pip3 install dropbox
+
+      - name: Run Python script
+        run: python pythondropbox.py
+
+      - name: Commit and push downloaded file
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add tracker/data/
+          git diff --cached --quiet || git commit -m "Add/update downloaded file from Dropbox"
+          git push
+
+  process_data:
+    name: Process R Data
+    needs: download
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+
+      - name: Restore last processed cache
+        id: cache-last-processed
+        uses: actions/cache@v4
+        with:
+          path: tracker/data/last_processed.txt
+          key: last-processed-file-${{ hashFiles('tracker/data/last_processed.txt') }}
+
+      - name: Ensure last_processed.txt exists
+        run: |
+          mkdir -p tracker/data
+          if [ ! -f tracker/data/last_processed.txt ]; then
+            echo " " > tracker/data/last_processed.txt
+          fi
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+
+      - name: Install R packages
+        run: |
+          Rscript -e 'install.packages(c("dplyr","tidyr","here"), repos = "https://cloud.r-project.org")'
+
+      - name: Run data processing script
+        run: |
+          Rscript data_processing.R
+
+      - name: Save last processed file to cache
+        if: always()
+        uses: actions/cache@v4
+        with:
+          path: tracker/data/last_processed.txt
+          key: last-processed-file-${{ hashFiles('tracker/data/last_processed.txt') }}
+
+      - name: Commit and push updated files (rebase-safe)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git stash push --include-untracked -m "autosave before rebase" || true
+          git pull --rebase origin main
+          git stash pop || true
+
+          git add tracker/data/app_data/*.rds tracker/data/total_data/*.rds tracker/data/grade_levels/*.rds tracker/data/diff_total/*.rds tracker/data/district_df/*.rds tracker/data/last_processed.txt
+
+          git diff --cached --quiet || git commit -m "Daily data update $(date -u +'%Y-%m-%d')"
+          git push
+
+  deploy_shiny:
+    name: Deploy Shiny App
+    needs: process_data
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
