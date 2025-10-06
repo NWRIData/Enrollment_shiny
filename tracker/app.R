@@ -173,7 +173,8 @@ server <- function(input, output, session){
     HTML(paste0(
       "<div style='font-size: 20px;'>We are currently ",
       "<span style='color:", color, "; font-weight: bold;'>",
-      abs(diff_total), " enrollees ", directioncum,
+      formatC(abs(diff_total), format = "f", big.mark = ",", digits = 0), 
+      " enrollees ", directioncum,
       "</span> compared to the same time last year.</div>"
     ))
   })
@@ -229,6 +230,7 @@ server <- function(input, output, session){
       scale_y_continuous(labels = scales::label_number(suffix = "K", scale = 1e-3)) +
       theme_minimal() +
       theme(axis.title = element_text(size = 16),
+            axis.text = element_text(size = 14),
             legend.text = element_text(size = 16),
             legend.title = element_blank())
   })
@@ -237,16 +239,16 @@ server <- function(input, output, session){
     req(graph_total())
     ggplot(data = NULL) +
       geom_area(data = graph_total(),
-                aes(x = week_of_cycle, y = cumulative_applicants, fill = Year)) +
-      geom_line(data = graph_total(),
-                aes(x = week_of_cycle, y = cumulative_applicants, fill = Year)) +
+                aes(x = week_of_cycle, y = cumulative_applicants, fill = Year),
+                alpha = 0.8) +
       annotate("text", x = Inf, y = Inf,
                label = paste0("New enrolled students: ",
                               format(total_new_enroll(), big.mark = ",")),
-               hjust = 1.3, vjust = 10, size = 9, color = "black") +
+               hjust = 1.3, vjust = 14, size = 9, color = "black") +
       labs(title = "Enrollment Over Time", x = "Weeks", y = "Enrollment") +
       theme_minimal() +
-      theme(axis.title = element_text(size = 16))
+      theme(axis.title = element_text(size = 16),
+            axis.text = element_text(size = 14))
   })
   
   # Grade plot
