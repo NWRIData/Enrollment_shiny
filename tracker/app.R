@@ -92,15 +92,12 @@ ui <- page_sidebar(
       nav_panel("Lost Kids", value = "lost_kids")
     )
   ),
-  
   # Main content dynamically rendered
   uiOutput("tab_content")
 )
 
 server <- function(input, output, session){
-  # Store persistent selected points from brushing
-  selected_points <- reactiveVal(NULL)
-  
+
   
   
   # Dynamic tab content
@@ -117,7 +114,8 @@ server <- function(input, output, session){
                       div(style = "text-align:center;",
                           h4("Enrollment Projections 2025-26")),
                       plotOutput("graphtotalold", height = "400px",
-                                 brush = brushOpts(id = "plot_brush", resetOnNew = TRUE)),
+                                 brush = brushOpts(id = "plot_brush", resetOnNew = TRUE),
+                                 click = "plot_click"),
                       tableOutput("selected_points")  # optional: show selected values
             ),
             nav_panel("Current New Enrollments",
@@ -149,6 +147,8 @@ server <- function(input, output, session){
   lost_kids_count <- reactiveVal(NULL)
   gradelevels     <- reactiveVal(NULL)
   pm_window       <- reactiveVal(NULL)
+  # Store persistent selected points from brushing
+  selected_points <- reactiveVal(NULL)
   
   # Load data lazily when a tab is opened
   observeEvent(input$nav, {
@@ -214,13 +214,32 @@ server <- function(input, output, session){
       sum()
   })
   
+  # --- Brush observer: select points via drag ---
   observeEvent(input$plot_brush, {
     brush <- input$plot_brush
     req(brush)
     
     d <- totaldata()
-    sel <- brushedPoints(d, brush, xvar = "week_of_cycle", yvar = "cumulative_n_includingold")
-    if (nrow(sel) > 0) selected_points(sel)
+    sel <- brushedPoints(d, brush,
+                         xvar = "week_of_cycle",
+                         yvar = "cumulative_n_includingold")
+    
+    # 🩹 Reconvert the date column if it exists
+    if ("start_date_cycle" %in% names(sel)) {
+      sel$start_date_cycle <- as.Date(sel$start_date_cycle, origin = "1970-01-01")
+    }
+    
+    
+    if (nrow(sel) > 0) {
+      selected_points(sel)
+    } else {
+      selected_points(NULL)
+    }
+  })
+  
+  # --- Click observer: clear any previously selected points ---
+  observeEvent(input$plot_click, {
+    selected_points(NULL)
   })
   
   output$graphtotalold <- renderPlot({
@@ -263,12 +282,20 @@ server <- function(input, output, session){
                   vjust = -1, color = "orange", size = 5, fontface = "bold")
     }
     
+    
     base_plot
   })
   
+  # --- Table rendering ---
   output$selected_points <- renderTable({
-    req(selected_points())
-    selected_points()
+    req(selected_points(), totaldata())
+    
+    # Recover original Date classes by merging back with original dataset
+    d <- totaldata()
+    sel <- selected_points()
+    
+    sel %>%
+      mutate(start_date_cycle=format(as.Date(start_date_cycle, "%Y-%m-%d")))
   })
   
   
