@@ -114,7 +114,7 @@ server <- function(input, output, session){
                       div(style = "text-align:center;",
                           h4("Enrollment Projections 2025-26")),
                       plotOutput("graphtotalold", height = "400px",
-                                 brush = brushOpts(id = "plot_brush", resetOnNew = TRUE),
+                                 brush = brushOpts(id = "plot_brush", resetOnNew = FALSE),
                                  click = "plot_click"),
                       tableOutput("selected_points")  # optional: show selected values
             ),
@@ -290,12 +290,19 @@ server <- function(input, output, session){
   output$selected_points <- renderTable({
     req(selected_points(), totaldata())
     
-    # Recover original Date classes by merging back with original dataset
-    d <- totaldata()
-    sel <- selected_points()
-    
-    sel %>%
-      mutate(start_date_cycle=format(as.Date(start_date_cycle, "%Y-%m-%d")))
+    selected_points() %>%
+      mutate(start_date_cycle=format(as.Date(start_date_cycle, "%Y-%m-%d"))) |>
+      relocate(start_date_cycle, .before = week_of_cycle) |>
+      relocate(Year, .before = start_date_cycle) |>
+      mutate(
+        `Weekly Enrollment` = formatC(round(n), format = "d", big.mark = ","),
+        `Cumulative enrollments` = formatC(round(cumulative_n_includingold), format = "d", big.mark = ",")
+      ) |>
+      rename(
+        Week = week_of_cycle,
+        Date = start_date_cycle
+      ) |>
+      select(Year, Date, Week, `Weekly Enrollment`, `Cumulative enrollments`)
   })
   
   
