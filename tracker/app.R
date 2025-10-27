@@ -322,6 +322,7 @@ server <- function(input, output, session){
       annotate("text", x = 46.5, y = 90000, label = "PM3", size = 9) +
       geom_area(data = graph_total(),
                 aes(x = week_of_cycle, y = cumulative_applicants, fill = Year),
+                position = "identity", 
                 alpha = 0.8) +
       annotate("text", x = Inf, y = Inf,
                label = paste0("New enrolled students: ",
