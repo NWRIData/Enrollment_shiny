@@ -114,7 +114,7 @@ server <- function(input, output, session){
                       div(style = "text-align:center;",
                           h4("Enrollment Projections 2025-26")),
                       plotOutput("graphtotalold", height = "400px",
-                                 brush = brushOpts(id = "plot_brush", resetOnNew = TRUE),
+                                 brush = brushOpts(id = "plot_brush", resetOnNew = FALSE),
                                  click = "plot_click"),
                       tableOutput("selected_points")  # optional: show selected values
             ),
@@ -263,7 +263,9 @@ server <- function(input, output, session){
                  aes(x = week_of_cycle, y = cumulative_n_includingold,
                      fill = Year), size = 3, pch = 21, color = "white") +
       labs(title = "Enrollment Over Time", x = "Weeks", y = "Enrollment") +
-      scale_y_continuous(labels = scales::label_number(suffix = "K", scale = 1e-3)) +
+      scale_colour_discrete(c("red","blue", "orange")) +
+      scale_colour_manual(values = c("#1B9E77", "#D95F02", "#7570B3")) +
+      scale_fill_manual(values = c("#1B9E77", "#D95F02", "#7570B3"))+
       theme_minimal() +
       theme(axis.title = element_text(size = 16),
             axis.text = element_text(size = 14),
@@ -290,18 +292,34 @@ server <- function(input, output, session){
   output$selected_points <- renderTable({
     req(selected_points(), totaldata())
     
-    # Recover original Date classes by merging back with original dataset
-    d <- totaldata()
-    sel <- selected_points()
-    
-    sel %>%
-      mutate(start_date_cycle=format(as.Date(start_date_cycle, "%Y-%m-%d")))
+    selected_points() %>%
+      mutate(start_date_cycle=format(as.Date(start_date_cycle, "%Y-%m-%d"))) |>
+      relocate(start_date_cycle, .before = week_of_cycle) |>
+      relocate(Year, .before = start_date_cycle) |>
+      mutate(
+        `Weekly Enrollment` = formatC(round(n), format = "d", big.mark = ","),
+        `Cumulative enrollments` = formatC(round(cumulative_n_includingold), format = "d", big.mark = ",")
+      ) |>
+      rename(
+        Week = week_of_cycle,
+        Date = start_date_cycle
+      ) |>
+      select(Year, Date, Week, `Weekly Enrollment`, `Cumulative enrollments`)
   })
   
   
   output$graphtotal <- renderPlot({
     req(graph_total())
     ggplot(data = NULL) +
+      geom_rect(aes(xmin = 8,xmax = 14, ymin = -Inf, ymax = Inf),
+                fill = "grey", alpha = 0.2) +
+      annotate("text", x = 11, y = 90000, label = "PM1", size = 9) +
+      geom_rect(aes(xmin = 25,xmax = 31, ymin = -Inf, ymax = Inf),
+                fill = "grey", alpha = 0.2) +
+      annotate("text", x = 28, y = 90000, label = "PM2", size = 9) +
+      geom_rect(aes(xmin = 44,xmax = 49, ymin = -Inf, ymax = Inf),
+                fill = "grey", alpha = 0.2) +
+      annotate("text", x = 46.5, y = 90000, label = "PM3", size = 9) +
       geom_area(data = graph_total(),
                 aes(x = week_of_cycle, y = cumulative_applicants, fill = Year),
                 alpha = 0.8) +
