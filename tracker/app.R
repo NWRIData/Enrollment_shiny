@@ -263,7 +263,9 @@ server <- function(input, output, session){
                  aes(x = week_of_cycle, y = cumulative_n_includingold,
                      fill = Year), size = 3, pch = 21, color = "white") +
       labs(title = "Enrollment Over Time", x = "Weeks", y = "Enrollment") +
-      scale_y_continuous(labels = scales::label_number(suffix = "K", scale = 1e-3)) +
+      scale_colour_discrete(c("red","blue", "orange")) +
+      scale_colour_manual(values = c("#1B9E77", "#D95F02", "#7570B3")) +
+      scale_fill_manual(values = c("#1B9E77", "#D95F02", "#7570B3"))+
       theme_minimal() +
       theme(axis.title = element_text(size = 16),
             axis.text = element_text(size = 14),
@@ -309,6 +311,15 @@ server <- function(input, output, session){
   output$graphtotal <- renderPlot({
     req(graph_total())
     ggplot(data = NULL) +
+      geom_rect(aes(xmin = 8,xmax = 14, ymin = -Inf, ymax = Inf),
+                fill = "grey", alpha = 0.2) +
+      annotate("text", x = 11, y = 90000, label = "PM1", size = 9) +
+      geom_rect(aes(xmin = 25,xmax = 31, ymin = -Inf, ymax = Inf),
+                fill = "grey", alpha = 0.2) +
+      annotate("text", x = 28, y = 90000, label = "PM2", size = 9) +
+      geom_rect(aes(xmin = 44,xmax = 49, ymin = -Inf, ymax = Inf),
+                fill = "grey", alpha = 0.2) +
+      annotate("text", x = 46.5, y = 90000, label = "PM3", size = 9) +
       geom_area(data = graph_total(),
                 aes(x = week_of_cycle, y = cumulative_applicants, fill = Year),
                 alpha = 0.8) +
