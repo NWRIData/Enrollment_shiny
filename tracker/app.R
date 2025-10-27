@@ -312,16 +312,19 @@ server <- function(input, output, session){
     req(graph_total())
     ggplot(data = NULL) +
       geom_rect(aes(xmin = 8,xmax = 14, ymin = -Inf, ymax = Inf),
-                fill = "grey", alpha = 0.2) +
+                fill = "grey", 
+                alpha = 0.2) +
       annotate("text", x = 11, y = 90000, label = "PM1", size = 9) +
       geom_rect(aes(xmin = 25,xmax = 31, ymin = -Inf, ymax = Inf),
-                fill = "grey", alpha = 0.2) +
+                fill = "grey", 
+                alpha = 0.2) +
       annotate("text", x = 28, y = 90000, label = "PM2", size = 9) +
       geom_rect(aes(xmin = 44,xmax = 49, ymin = -Inf, ymax = Inf),
                 fill = "grey", alpha = 0.2) +
       annotate("text", x = 46.5, y = 90000, label = "PM3", size = 9) +
       geom_area(data = graph_total(),
                 aes(x = week_of_cycle, y = cumulative_applicants, fill = Year),
+                position = "identity", 
                 alpha = 0.8) +
       annotate("text", x = Inf, y = Inf,
                label = paste0("New enrolled students: ",
