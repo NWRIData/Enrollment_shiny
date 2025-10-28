@@ -111,11 +111,15 @@ olddata2<-olddata %>%
 fdoe_enroll2<-rbind(olddata2, recentdata %>%
                       select(-DistrictID))
 
+nrow(olddata2)
+nrow(recentdata)
+
 cycles <- data.frame(
   cycle_id = c('Y4', 'Y5'),
   start_date = as.Date(c("2024-06-11", "2025-06-23")),
   end_date = as.Date(c("2025-06-22", NA))  # NA for open-ended
 )
+
 
 app_data <- fdoe_enroll2 %>%
   filter(AdmissionDate > "2024-06-11") %>%
@@ -127,6 +131,7 @@ app_data <- fdoe_enroll2 %>%
       TRUE ~ NA_character_
     )
   )
+
 
 applied_not_enrolled<-app_data %>%
   filter(!is.na(cycle_id)) %>%
