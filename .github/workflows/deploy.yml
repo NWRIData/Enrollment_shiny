@@ -17,7 +17,6 @@ jobs:
   download:
     name: Download Data from Dropbox
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repo (full history)
         uses: actions/checkout@v4
@@ -34,47 +33,25 @@ jobs:
       - name: Run Python download script
         run: python pythondropbox.py
 
-      - name: Fix file ownership
-        run: sudo chown -R $USER:$USER tracker/data/
-
-      - name: Commit and push downloaded data (safe)
+      - name: Commit and push downloaded data
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git pull --rebase origin main || true
-
-          git add -A tracker/data/
-
+          git add tracker/data/
           git diff --cached --quiet || git commit -m "Downloaded latest data from Dropbox"
-          git push || true
-
+          git push
 
   process_data:
     name: Process R Data
     needs: download
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repo (full history)
+      - name: Checkout repo
         uses: actions/checkout@v4
         with:
           persist-credentials: true
           fetch-depth: 0
-
-      - name: Restore last_processed.txt cache
-        id: cache-last
-        uses: actions/cache@v4
-        with:
-          path: tracker/data/last_processed.txt
-          key: last-processed-file-${{ hashFiles('tracker/data/last_processed.txt') }}
-
-      - name: Ensure last_processed exists
-        run: |
-          mkdir -p tracker/data
-          if [ ! -f tracker/data/last_processed.txt ]; then
-            echo " " > tracker/data/last_processed.txt
-          fi
 
       - name: Setup R
         uses: r-lib/actions/setup-r@v2
@@ -82,9 +59,8 @@ jobs:
       - name: Install system deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            libcurl4-openssl-dev libssl-dev libxml2-dev \
-            libpng-dev libjpeg-dev libfreetype6-dev
+          sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev \
+                                  libpng-dev libjpeg-dev libfreetype6-dev
 
       - name: Install minimal R packages
         run: |
@@ -93,35 +69,24 @@ jobs:
       - name: Run R data processing
         run: Rscript data_processing.R
 
-      - name: Save last_processed cache
-        if: always()
-        uses: actions/cache@v4
-        with:
-          path: tracker/data/last_processed.txt
-          key: last-processed-file-${{ hashFiles('tracker/data/last_processed.txt') }}
-
-      - name: Commit and push processed R data (safe)
+      - name: Commit and push processed data
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git pull --rebase origin main || true
-
-          git add -A tracker/data/
-
+          git add tracker/data/**/*.rds tracker/data/last_processed.txt
           git diff --cached --quiet || git commit -m "Processed daily R data $(date -u +'%Y-%m-%d')"
-          git push || true
-
+          git push
 
   deploy_shiny:
     name: Deploy Shiny App
     needs: process_data
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repo
+      - name: Checkout repo (includes latest RDS)
         uses: actions/checkout@v4
         with:
+          persist-credentials: true
           fetch-depth: 0
 
       - name: Setup R
@@ -132,14 +97,13 @@ jobs:
       - name: Install system deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            libcurl4-openssl-dev libssl-dev libxml2-dev \
-            libpng-dev libjpeg-dev libfreetype6-dev
+          sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev \
+                                  libpng-dev libjpeg-dev libfreetype6-dev
 
       - name: Install R packages
         run: |
           Rscript -e "install.packages('remotes', repos='https://cloud.r-project.org')"
-          Rscript -e "remotes::install_cran(c('curl','scales','shiny','dplyr','ggplot2','tidyr','lubridate','rsconnect','viridis'), dependencies=TRUE)"
+          Rscript -e "remotes::install_cran(c('curl','scales','shiny','dplyr','ggplot2','tidyr','lubridate','rsconnect','viridis','bslib'), dependencies=TRUE)"
 
       - name: Deploy to shinyapps.io
         env:
