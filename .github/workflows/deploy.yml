@@ -4,13 +4,13 @@ on:
   push:
     branches: [main]
   schedule:
-    # Weekdays only (1–5 = Mon–Fri)
+    # Weekdays only (Mon–Fri)
     # DST: March–November
-    - cron: '0 11 * 3-11 1-5' # 7 AM ET
-    - cron: '0 19 * 3-11 1-5' # 3 PM ET
+    - cron: '0 11 * 3-11 1-5'  # 7 AM ET
+    - cron: '0 19 * 3-11 1-5'  # 3 PM ET
     # Standard Time: Jan, Feb, Dec
-    - cron: '0 12 * 1,2,12 1-5' # 7 AM ET
-    - cron: '0 20 * 1,2,12 1-5' # 3 PM ET
+    - cron: '0 12 * 1,2,12 1-5'  # 7 AM ET
+    - cron: '0 20 * 1,2,12 1-5'  # 3 PM ET
   workflow_dispatch:
 
 jobs:
@@ -18,24 +18,34 @@ jobs:
     name: Download Data from Dropbox
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repo
+      - name: Checkout repo (full history)
         uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 0
 
-      - name: Install Python and Dropbox SDK
+      - name: Install Python + Dropbox SDK
         run: |
           sudo apt-get update
           sudo apt-get install -y python3-pip
           pip3 install dropbox
 
-      - name: Run Python script
+      - name: Run Python download script
         run: python pythondropbox.py
 
-      - name: Commit and push downloaded file
+      - name: Commit and push downloaded data (rebase-safe)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Safely update local branch
+          git stash push --include-untracked -m "autosave before rebase" || true
+          git pull --rebase origin main
+          git stash pop || true
+
           git add tracker/data/
-          git diff --cached --quiet || git commit -m "Add/update downloaded file from Dropbox"
+
+          git diff --cached --quiet || git commit -m "Downloaded latest data from Dropbox"
           git push
 
   process_data:
@@ -43,56 +53,51 @@ jobs:
     needs: download
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repo
+      - name: Checkout repo (full history)
         uses: actions/checkout@v3
         with:
           persist-credentials: true
           fetch-depth: 0
 
-      - name: Restore last processed cache
-        id: cache-last-processed
+      - name: Restore last_processed.txt cache
+        id: cache-last
         uses: actions/cache@v4
         with:
           path: tracker/data/last_processed.txt
           key: last-processed-file-${{ hashFiles('tracker/data/last_processed.txt') }}
 
-      - name: Ensure last_processed.txt exists
+      - name: Ensure last_processed exists
         run: |
           mkdir -p tracker/data
           if [ ! -f tracker/data/last_processed.txt ]; then
             echo " " > tracker/data/last_processed.txt
           fi
 
-      - name: Set up R
+      - name: Setup R
         uses: r-lib/actions/setup-r@v2
 
-      - name: Install system dependencies
+      - name: Install system deps
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            libcurl4-openssl-dev \
-            libssl-dev \
-            libxml2-dev \
-            libpng-dev \
-            libjpeg-dev \
-            libfreetype6-dev
+            libcurl4-openssl-dev libssl-dev libxml2-dev \
+            libpng-dev libjpeg-dev libfreetype6-dev
 
-      - name: Install R packages
+      - name: Install minimal packages
         run: |
-          Rscript -e 'install.packages(c("dplyr","tidyr","here"), repos = "https://cloud.r-project.org")'
+          Rscript -e 'install.packages(c("dplyr","tidyr","here"), repos="https://cloud.r-project.org")'
 
-      - name: Run data processing script
-        run: |
-          Rscript data_processing.R
+      - name: Run R data processing
+        run: Rscript data_processing.R
 
-      - name: Save last processed file to cache
+      - name: Save last processed cache
         if: always()
         uses: actions/cache@v4
         with:
           path: tracker/data/last_processed.txt
           key: last-processed-file-${{ hashFiles('tracker/data/last_processed.txt') }}
 
-      - name: Commit and push updated files (rebase-safe)
+      - name: Commit and push processed R data (rebase-safe)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -101,9 +106,14 @@ jobs:
           git pull --rebase origin main
           git stash pop || true
 
-          git add tracker/data/app_data/*.rds tracker/data/total_data/*.rds tracker/data/grade_levels/*.rds tracker/data/diff_total/*.rds tracker/data/district_df/*.rds tracker/data/last_processed.txt
+          git add tracker/data/app_data/*.rds \
+                  tracker/data/total_data/*.rds \
+                  tracker/data/grade_levels/*.rds \
+                  tracker/data/diff_total/*.rds \
+                  tracker/data/district_df/*.rds \
+                  tracker/data/last_processed.txt
 
-          git diff --cached --quiet || git commit -m "Daily data update $(date -u +'%Y-%m-%d')"
+          git diff --cached --quiet || git commit -m "Processed daily R data $(date -u +'%Y-%m-%d')"
           git push
 
   deploy_shiny:
@@ -119,21 +129,17 @@ jobs:
         with:
           r-version: '4.4.2'
 
-      - name: Install system dependencies
+      - name: Install system deps
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            libcurl4-openssl-dev \
-            libssl-dev \
-            libxml2-dev \
-            libpng-dev \
-            libjpeg-dev \
-            libfreetype6-dev
+            libcurl4-openssl-dev libssl-dev libxml2-dev \
+            libpng-dev libjpeg-dev libfreetype6-dev
 
-      - name: Install required R packages
+      - name: Install R packages
         run: |
-          Rscript -e "install.packages('remotes', repos = 'https://cloud.r-project.org')"
-          Rscript -e "remotes::install_cran(c('curl', 'scales', 'shiny', 'dplyr', 'ggplot2', 'tidyr', 'lubridate', 'rsconnect','viridis'), dependencies = TRUE)"
+          Rscript -e "install.packages('remotes', repos='https://cloud.r-project.org')"
+          Rscript -e "remotes::install_cran(c('curl','scales','shiny','dplyr','ggplot2','tidyr','lubridate','rsconnect','viridis'), dependencies=TRUE)"
 
       - name: Deploy to shinyapps.io
         env:
@@ -142,4 +148,4 @@ jobs:
           SHINYAPPS_SECRET: ${{ secrets.SHINYAPPS_SECRET }}
         run: |
           Rscript -e "rsconnect::setAccountInfo(name='${SHINYAPPS_NAME}', token='${SHINYAPPS_TOKEN}', secret='${SHINYAPPS_SECRET}')"
-          Rscript -e "rsconnect::deployApp(appDir = 'tracker', appName = 'nwri-tracker', forceUpdate = TRUE)"
+          Rscript -e "rsconnect::deployApp(appDir='tracker', appName='nwri-tracker', forceUpdate=TRUE)"
