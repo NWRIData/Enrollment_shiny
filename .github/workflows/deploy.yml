@@ -3,6 +3,8 @@ name: Daily Data Pipeline and Shiny Deployment
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]     # Allow workflow to run on feature branches for testing
   schedule:
     # Weekdays only (Mon–Fri)
     # DST: March–November
@@ -21,8 +23,8 @@ jobs:
       - name: Checkout repo (full history)
         uses: actions/checkout@v4
         with:
-          persist-credentials: true
           fetch-depth: 0
+          persist-credentials: true
 
       - name: Install Python + Dropbox SDK
         run: |
@@ -33,19 +35,16 @@ jobs:
       - name: Run Python download script
         run: python pythondropbox.py
 
-      - name: Commit and push downloaded data (rebase-safe)
+      - name: Commit and push downloaded data (safe)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Safely update local branch
-          git stash push --include-untracked -m "autosave before rebase" || true
-          git pull --rebase origin main
-          git stash pop || true
-
           git add tracker/data/
+          git diff --cached --quiet && exit 0
 
-          git diff --cached --quiet || git commit -m "Downloaded latest data from Dropbox"
+          git commit -m "Downloaded latest data from Dropbox"
+          git pull --rebase origin main
           git push
 
   process_data:
@@ -54,82 +53,58 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo (full history)
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
-          persist-credentials: true
           fetch-depth: 0
-
-      - name: Restore last_processed.txt cache
-        id: cache-last
-        uses: actions/cache@v4
-        with:
-          path: tracker/data/last_processed.txt
-          key: last-processed-file-${{ hashFiles('tracker/data/last_processed.txt') }}
-
-      - name: Ensure last_processed exists
-        run: |
-          mkdir -p tracker/data
-          if [ ! -f tracker/data/last_processed.txt ]; then
-            echo " " > tracker/data/last_processed.txt
-          fi
+          persist-credentials: true
 
       - name: Setup R
         uses: r-lib/actions/setup-r@v2
 
-      - name: Install system deps
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             libcurl4-openssl-dev libssl-dev libxml2-dev \
             libpng-dev libjpeg-dev libfreetype6-dev
 
-      - name: Install minimal packages
+      - name: Install R packages
         run: |
           Rscript -e 'install.packages(c("dplyr","tidyr","here"), repos="https://cloud.r-project.org")'
 
-      - name: Run R data processing
+      - name: Run data processing
         run: Rscript data_processing.R
 
-      - name: Save last processed cache
-        if: always()
-        uses: actions/cache@v4
-        with:
-          path: tracker/data/last_processed.txt
-          key: last-processed-file-${{ hashFiles('tracker/data/last_processed.txt') }}
-
-      - name: Commit and push processed R data (rebase-safe)
+      - name: Commit and push processed data (safe)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git stash push --include-untracked -m "autosave before rebase" || true
+          git add tracker/data/**/*.rds tracker/data/last_processed.txt
+          git diff --cached --quiet && exit 0
+
+          git commit -m "Processed daily R data $(date -u +'%Y-%m-%d')"
           git pull --rebase origin main
-          git stash pop || true
-
-          git add tracker/data/app_data/*.rds \
-                  tracker/data/total_data/*.rds \
-                  tracker/data/grade_levels/*.rds \
-                  tracker/data/diff_total/*.rds \
-                  tracker/data/district_df/*.rds \
-                  tracker/data/last_processed.txt
-
-          git diff --cached --quiet || git commit -m "Processed daily R data $(date -u +'%Y-%m-%d')"
           git push
 
   deploy_shiny:
     name: Deploy Shiny App
     needs: process_data
+    if: github.ref == 'refs/heads/main'    # Only deploy on main, not PR branches
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+      - name: Checkout repo (includes updated RDS)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
 
       - name: Setup R
         uses: r-lib/actions/setup-r@v2
         with:
           r-version: '4.4.2'
 
-      - name: Install system deps
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -139,7 +114,7 @@ jobs:
       - name: Install R packages
         run: |
           Rscript -e "install.packages('remotes', repos='https://cloud.r-project.org')"
-          Rscript -e "remotes::install_cran(c('curl','scales','shiny','dplyr','ggplot2','tidyr','lubridate','rsconnect','viridis'), dependencies=TRUE)"
+          Rscript -e "remotes::install_cran(c('curl','scales','shiny','dplyr','ggplot2','tidyr','lubridate','rsconnect','viridis','bslib'), dependencies=TRUE)"
 
       - name: Deploy to shinyapps.io
         env:
