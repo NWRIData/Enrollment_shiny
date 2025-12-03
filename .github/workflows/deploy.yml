@@ -3,8 +3,6 @@ name: Daily Data Pipeline and Shiny Deployment
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]     # Allow workflow to run on feature branches for testing
   schedule:
     # Weekdays only (Mon–Fri)
     # DST: March–November
@@ -23,8 +21,8 @@ jobs:
       - name: Checkout repo (full history)
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
           persist-credentials: true
+          fetch-depth: 0
 
       - name: Install Python + Dropbox SDK
         run: |
@@ -44,34 +42,39 @@ jobs:
           git diff --cached --quiet && exit 0
 
           git commit -m "Downloaded latest data from Dropbox"
+
+          git fetch origin main
+          git checkout main
           git pull --rebase origin main
-          git push
+
+          git push origin main
 
   process_data:
     name: Process R Data
     needs: download
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repo (full history)
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
           persist-credentials: true
+          fetch-depth: 0
 
       - name: Setup R
         uses: r-lib/actions/setup-r@v2
 
-      - name: Install system dependencies
+      - name: Install system deps
         run: |
           sudo apt-get update
           sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev \
                                   libpng-dev libjpeg-dev libfreetype6-dev
 
-      - name: Install R packages
+      - name: Install minimal R packages
         run: |
           Rscript -e 'install.packages(c("dplyr","tidyr","here"), repos="https://cloud.r-project.org")'
 
-      - name: Run data processing
+      - name: Run R data processing
         run: Rscript data_processing.R
 
       - name: Commit and push processed data (safe)
@@ -83,27 +86,32 @@ jobs:
           git diff --cached --quiet && exit 0
 
           git commit -m "Processed daily R data $(date -u +'%Y-%m-%d')"
+
+          git fetch origin main
+          git checkout main
           git pull --rebase origin main
-          git push
+
+          git push origin main
+
 
   deploy_shiny:
     name: Deploy Shiny App
     needs: process_data
-    if: github.ref == 'refs/heads/main'    # Only deploy on main, not PR branches
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repo (includes updated RDS)
+      - name: Checkout repo (latest RDS included)
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
           persist-credentials: true
+          fetch-depth: 0
 
       - name: Setup R
         uses: r-lib/actions/setup-r@v2
         with:
           r-version: '4.4.2'
 
-      - name: Install system dependencies
+      - name: Install system deps
         run: |
           sudo apt-get update
           sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev \
