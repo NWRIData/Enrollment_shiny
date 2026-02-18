@@ -57,6 +57,9 @@ lostkids<-recentdata %>%
   filter(is.na(DistrictID)) %>%
   filter(!is.na(AdmissionDate))
 
+lostkids<-recentdata %>%
+  filter(is.na(DistrictID))
+
 #save lost kids data:
 
 saveRDS(lostkids, file = here("tracker", "data","lostkids","raw", paste0("lost_kids_raw",date,".rds")))
