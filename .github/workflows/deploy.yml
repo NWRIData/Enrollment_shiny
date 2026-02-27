@@ -80,9 +80,8 @@ jobs:
           git diff --cached --quiet && exit 0
           git commit -m "Processed daily R data $(date -u +'%Y-%m-%d')"
           
-          git fetch origin main
-          git rebase origin main
-          git push origin main
+          git pull --rebase origin main
+          git push origin HEAD:main
 
   deploy_shiny:
     name: Deploy Shiny App
