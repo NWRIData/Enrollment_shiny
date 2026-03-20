@@ -54,11 +54,17 @@ cat("Reading file from:", latest_file, "\n")
 
 #save the lost kids:
 lostkids<-recentdata %>%
-  filter(is.na(DistrictID)) %>%
-  filter(!is.na(AdmissionDate))
-
-lostkids<-recentdata %>%
   filter(is.na(DistrictID))
+
+
+#getting the start of y5 constant
+
+constant<-recentdata %>%
+  mutate(AdmissionDate = as.Date(AdmissionDate),
+         EnrollmentDate = as.Date(EnrollmentDate)) %>%
+  mutate(Status = ifelse(AdmissionDate < as.Date("2025-07-01"), "OLD", "Y5")) %>%
+  count(Status) %>% filter(Status == "OLD") %>%
+  pull(n)
 
 #save lost kids data:
 
@@ -73,8 +79,7 @@ recentdatacopy<-recentdata
 
 #get rid of mappedschool
 recentdata<-recentdata %>%
-  select(-MappedDOESchool) %>%
-  filter(!is.na(DistrictID))
+  select(-MappedDOESchool) 
 
 #clean up district names so they match up to the district names in the application and enrollment data
 district_code_data<-district_code_data %>%
@@ -99,6 +104,7 @@ olddata<-olddata %>%
   left_join(.,district_code_data, by = c("DistrictName")) 
 
 #fix up most recent data
+#notice here we include the nonmatch student that we had previouwsly filtered out for
 recentdata<-recentdata %>%
   filter(AdmissionDate > "2025-06-22") %>%
   mutate(DistrictName = toupper(DistrictName)) %>%
@@ -119,18 +125,17 @@ nrow(recentdata)
 
 cycles <- data.frame(
   cycle_id = c('Y4', 'Y5'),
-  start_date = as.Date(c("2024-06-11", "2025-06-23")),
+  start_date = as.Date(c("2024-06-11", "2025-07-01")),
   end_date = as.Date(c("2025-06-22", NA))  # NA for open-ended
 )
 
 
 app_data <- fdoe_enroll2 %>%
-  filter(AdmissionDate > "2024-06-11") %>%
   select(NWRIEnrollmentID, DistrictName, AdmissionDate, EnrollmentDate) %>%
   mutate(
     cycle_id = case_when(
       AdmissionDate >= as.Date("2024-06-11") & AdmissionDate <= as.Date("2025-06-22") ~ "Y4",
-      AdmissionDate >= as.Date("2025-06-23") ~ "Y5",
+      AdmissionDate >= as.Date("2025-07-01") ~ "Y5",
       TRUE ~ NA_character_
     )
   )
@@ -153,7 +158,7 @@ grade_level_data<-recentdatacopy %>%
   mutate(
     cycle_id = case_when(
       AdmissionDate >= as.Date("2024-06-11") & AdmissionDate <= as.Date("2025-06-22") ~ "Y4",
-      AdmissionDate >= as.Date("2025-06-23") ~ "Y5",
+      AdmissionDate >= as.Date("2025-06-22") ~ "Y5",
       TRUE ~ NA_character_
     )
   ) %>%
@@ -178,7 +183,7 @@ app_data_enrolled<-app_data %>%
 
 
 start_date_202425<-as.Date("2024-06-11")
-start_date_202526<-as.Date("2025-06-23")
+start_date_202526<-as.Date("2025-06-22")
 
 max_week_old <- max(app_data_enrolled$week_of_cycle, na.rm = TRUE)
 max_week_curr <- max(app_data_enrolled %>%
@@ -217,7 +222,7 @@ curreentdataweek<-app_data_enrolled %>%
   arrange(week_of_cycle) %>%
   mutate(
     n_includingold = n,
-    n_includingold = if_else(row_number() == 1, 251797, n_includingold),   # set first n to 252000
+    n_includingold = if_else(row_number() == 1, constant, n_includingold),   # set first n to 252000
     cumulative_applicants = cumsum(n),
     cumulative_n_includingold = cumsum(n_includingold)
   ) %>%
@@ -226,7 +231,7 @@ curreentdataweek<-app_data_enrolled %>%
   filter(! week_of_cycle > max_week_curr)
 
 # Calculate the weekly increase needed to hit the goal
-goal_start <- 251797
+goal_start <- constant
 goal_end <- 375000
 goal_weeks <- max_week_old
 
