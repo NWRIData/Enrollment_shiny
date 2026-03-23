@@ -114,11 +114,19 @@ server <- function(input, output, session){
                   title = "Forecast Settings",
                   radioButtons("proj_scenario", "Scenario:",
                                choices = c("Business as Usual" = "bau",
-                                           "Decay Model" = "decay")),
+                                           "Decay Model (Pessimistic)" = "decay")),
                   conditionalPanel(
                     condition = "input.proj_scenario == 'decay'",
                     sliderInput("decay_rate", "Weekly Decay Rate (%):",
-                                min = 1, max = 20, value = 5, step = 1)
+                                min = 1, max = 20, value = 5, step = 1),
+                    # --- NEW: Helpful explanation for the user ---
+                    div(
+                      style = "font-size: 0.85em; color: #555; margin-top: 10px; line-height: 1.4;",
+                      strong("What does this mean? "), 
+                      "This model assumes our recent enrollment momentum will gradually cool off over time.",
+                      br(), br(),
+                      "For example, a ", strong("5% decay"), " means if we enrolled 1,000 new students this week, we expect to enroll 950 next week, 902 the week after, and so on. A higher percentage means a faster drop-off."
+                    )
                   )
                 ),
                 div(style = "text-align:center;",
@@ -127,7 +135,7 @@ server <- function(input, output, session){
                            brush = brushOpts(id = "plot_brush", resetOnNew = FALSE),
                            click = "plot_click"),
                 
-                # --- NEW: Final numbers box output ---
+                # Final numbers box output
                 uiOutput("proj_final_boxes"),
                 br(),
                 
@@ -244,6 +252,9 @@ server <- function(input, output, session){
     last_week <- max(d_curr$week_of_cycle, na.rm = TRUE)
     last_cum <- max(d_curr$cumulative_n_includingold, na.rm = TRUE)
     
+    # Find the maximum week across ALL years to know where to stop projecting
+    end_week <- max(totaldata()$week_of_cycle, na.rm = TRUE)
+    
     # Calculate historical averages
     avg_2_wk <- mean(tail(d_curr$n, 2), na.rm = TRUE)
     avg_4_wk <- mean(tail(d_curr$n, 4), na.rm = TRUE)
@@ -252,8 +263,8 @@ server <- function(input, output, session){
     # Check UI input for decay rate
     decay <- if (input$proj_scenario == "decay") (req(input$decay_rate) / 100) else 0
     
-    # Generate future weeks up to week 52
-    data.frame(week_of_cycle = last_week:52) %>%
+    # Generate future weeks dynamically up to end_week
+    data.frame(week_of_cycle = last_week:end_week) %>%
       mutate(
         weeks_ahead = week_of_cycle - last_week,
         
@@ -296,7 +307,7 @@ server <- function(input, output, session){
     selected_points(NULL)
   })
   
-  # --- Plot with Projections & Updated Colors ---
+  # --- Plot with Projections ---
   output$graphtotalold <- renderPlot({
     req(totaldata(), proj_df())
     d <- totaldata()
@@ -314,7 +325,7 @@ server <- function(input, output, session){
       geom_line(data = d, aes(x = week_of_cycle, y = cumulative_n_includingold, color = Year), size = 1.5) +
       geom_point(data = d, aes(x = week_of_cycle, y = cumulative_n_includingold, fill = Year), size = 3, pch = 21, color = "white") +
       
-      # New Projection Lines (With updated vibrant colors)
+      # New Projection Lines
       geom_line(data = p_df, aes(x = week_of_cycle, y = proj_2wk, linetype = "2-Wk Avg"), color = "#FF3366", size = 1.2) +
       geom_line(data = p_df, aes(x = week_of_cycle, y = proj_4wk, linetype = "4-Wk Avg"), color = "#00C4CC", size = 1.2) +
       geom_line(data = p_df, aes(x = week_of_cycle, y = proj_8wk, linetype = "8-Wk Avg"), color = "#6633FF", size = 1.2) +
@@ -348,8 +359,8 @@ server <- function(input, output, session){
   output$proj_final_boxes <- renderUI({
     req(proj_df())
     
-    # Grab the very last row (Week 52)
-    final_data <- proj_df() %>% filter(week_of_cycle == 52)
+    # Grab the very last row dynamically based on whatever the max week is
+    final_data <- proj_df() %>% filter(week_of_cycle == max(week_of_cycle, na.rm = TRUE))
     
     # Format the integers with commas
     val_2wk <- format(round(final_data$proj_2wk), big.mark = ",")
