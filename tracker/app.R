@@ -75,7 +75,6 @@ ui <- page_sidebar(
     "))
   ),
   
-  
   # Sidebar navigation as clickable menu
   sidebar = sidebar(
     navset_tab( footer = HTML(
@@ -98,8 +97,6 @@ ui <- page_sidebar(
 
 server <- function(input, output, session){
 
-  
-  
   # Dynamic tab content
   output$tab_content <- renderUI({
     if (input$nav == "current_total") {
@@ -110,14 +107,34 @@ server <- function(input, output, session){
           card_header("Enrollment Details"),
           navset_tab(
             id = "enrollment_tabs",
+            # --- ENROLLMENT PROJECTION TAB ---
             nav_panel("Enrollment Projection",
-                      div(style = "text-align:center;",
-                          h4("Enrollment Projections 2025-26")),
-                      plotOutput("graphtotalold", height = "400px",
-                                 brush = brushOpts(id = "plot_brush", resetOnNew = FALSE),
-                                 click = "plot_click"),
-                      tableOutput("selected_points")  # optional: show selected values
+              layout_sidebar(
+                sidebar = sidebar(
+                  title = "Forecast Settings",
+                  radioButtons("proj_scenario", "Scenario:",
+                               choices = c("Business as Usual" = "bau",
+                                           "Decay Model" = "decay")),
+                  conditionalPanel(
+                    condition = "input.proj_scenario == 'decay'",
+                    sliderInput("decay_rate", "Weekly Decay Rate (%):",
+                                min = 1, max = 20, value = 5, step = 1)
+                  )
+                ),
+                div(style = "text-align:center;",
+                    h4("Enrollment Projections 2025-26")),
+                plotOutput("graphtotalold", height = "400px",
+                           brush = brushOpts(id = "plot_brush", resetOnNew = FALSE),
+                           click = "plot_click"),
+                
+                # --- NEW: Final numbers box output ---
+                uiOutput("proj_final_boxes"),
+                br(),
+                
+                tableOutput("selected_points") 
+              )
             ),
+            # -----------------------------------------
             nav_panel("Current New Enrollments",
                       div(style = "text-align:center;",
                           h4("Current New Enrollments 2025-26")),
@@ -138,7 +155,6 @@ server <- function(input, output, session){
       uiOutput("lost_kids_summary")
     }
   })
-  
   
   # Reactive values for lazy-loading
   district_data   <- reactiveVal(NULL)
@@ -214,6 +230,45 @@ server <- function(input, output, session){
       sum()
   })
   
+  # --- Reactive Data for Projections ---
+  proj_df <- reactive({
+    req(totaldata(), input$proj_scenario)
+    
+    # Filter for Current Year to get our baseline for the forecast
+    d_curr <- totaldata() %>% 
+      filter(Year == "Current Year") %>% 
+      arrange(week_of_cycle)
+    
+    req(nrow(d_curr) > 0)
+    
+    last_week <- max(d_curr$week_of_cycle, na.rm = TRUE)
+    last_cum <- max(d_curr$cumulative_n_includingold, na.rm = TRUE)
+    
+    # Calculate historical averages
+    avg_2_wk <- mean(tail(d_curr$n, 2), na.rm = TRUE)
+    avg_4_wk <- mean(tail(d_curr$n, 4), na.rm = TRUE)
+    avg_8_wk <- mean(tail(d_curr$n, 8), na.rm = TRUE)
+    
+    # Check UI input for decay rate
+    decay <- if (input$proj_scenario == "decay") (req(input$decay_rate) / 100) else 0
+    
+    # Generate future weeks up to week 52
+    data.frame(week_of_cycle = last_week:52) %>%
+      mutate(
+        weeks_ahead = week_of_cycle - last_week,
+        
+        # Calculate new enrollees per week with decay applied
+        n_2wk = ifelse(weeks_ahead == 0, 0, avg_2_wk * ((1 - decay) ^ weeks_ahead)),
+        n_4wk = ifelse(weeks_ahead == 0, 0, avg_4_wk * ((1 - decay) ^ weeks_ahead)),
+        n_8wk = ifelse(weeks_ahead == 0, 0, avg_8_wk * ((1 - decay) ^ weeks_ahead)),
+        
+        # Sum cumulatively
+        proj_2wk = last_cum + cumsum(n_2wk),
+        proj_4wk = last_cum + cumsum(n_4wk),
+        proj_8wk = last_cum + cumsum(n_8wk)
+      )
+  })
+  
   # --- Brush observer: select points via drag ---
   observeEvent(input$plot_brush, {
     brush <- input$plot_brush
@@ -224,11 +279,10 @@ server <- function(input, output, session){
                          xvar = "week_of_cycle",
                          yvar = "cumulative_n_includingold")
     
-    # 🩹 Reconvert the date column if it exists
+    # Reconvert the date column if it exists
     if ("start_date_cycle" %in% names(sel)) {
       sel$start_date_cycle <- as.Date(sel$start_date_cycle, origin = "1970-01-01")
     }
-    
     
     if (nrow(sel) > 0) {
       selected_points(sel)
@@ -242,30 +296,33 @@ server <- function(input, output, session){
     selected_points(NULL)
   })
   
+  # --- Plot with Projections & Updated Colors ---
   output$graphtotalold <- renderPlot({
-    req(totaldata())
+    req(totaldata(), proj_df())
     d <- totaldata()
+    p_df <- proj_df()
     
-    base_plot <- ggplot(data = NULL) +
-      geom_rect(aes(xmin = 8,xmax = 14, ymin = -Inf, ymax = Inf),
-                fill = "grey", alpha = 0.2) +
+    base_plot <- ggplot() +
+      geom_rect(aes(xmin = 8,xmax = 14, ymin = -Inf, ymax = Inf), fill = "grey", alpha = 0.2) +
       annotate("text", x = 11, y = 400000, label = "PM1", size = 9) +
-      geom_rect(aes(xmin = 25,xmax = 31, ymin = -Inf, ymax = Inf),
-                fill = "grey", alpha = 0.2) +
+      geom_rect(aes(xmin = 25,xmax = 31, ymin = -Inf, ymax = Inf), fill = "grey", alpha = 0.2) +
       annotate("text", x = 28, y = 400000, label = "PM2", size = 9) +
-      geom_rect(aes(xmin = 44,xmax = 49, ymin = -Inf, ymax = Inf),
-                fill = "grey", alpha = 0.2) +
+      geom_rect(aes(xmin = 44,xmax = 49, ymin = -Inf, ymax = Inf), fill = "grey", alpha = 0.2) +
       annotate("text", x = 46.5, y = 400000, label = "PM3", size = 9) +
-      geom_line(data = d,
-                aes(x = week_of_cycle, y = cumulative_n_includingold,
-                    color = Year), size = 1.5) +
-      geom_point(data = d,
-                 aes(x = week_of_cycle, y = cumulative_n_includingold,
-                     fill = Year), size = 3, pch = 21, color = "white") +
+      
+      # Existing historical lines
+      geom_line(data = d, aes(x = week_of_cycle, y = cumulative_n_includingold, color = Year), size = 1.5) +
+      geom_point(data = d, aes(x = week_of_cycle, y = cumulative_n_includingold, fill = Year), size = 3, pch = 21, color = "white") +
+      
+      # New Projection Lines (With updated vibrant colors)
+      geom_line(data = p_df, aes(x = week_of_cycle, y = proj_2wk, linetype = "2-Wk Avg"), color = "#FF3366", size = 1.2) +
+      geom_line(data = p_df, aes(x = week_of_cycle, y = proj_4wk, linetype = "4-Wk Avg"), color = "#00C4CC", size = 1.2) +
+      geom_line(data = p_df, aes(x = week_of_cycle, y = proj_8wk, linetype = "8-Wk Avg"), color = "#6633FF", size = 1.2) +
+      
       labs(title = "Enrollment Over Time", x = "Weeks", y = "Enrollment") +
-      scale_colour_discrete(c("red","blue", "orange")) +
-      scale_colour_manual(values = c("#1B9E77", "#D95F02", "#7570B3")) +
-      scale_fill_manual(values = c("#1B9E77", "#D95F02", "#7570B3"))+
+      scale_colour_manual(values = c("Current Year" = "#1B9E77", "Previous Year" = "#D95F02", "Goal" = "#7570B3")) +
+      scale_fill_manual(values = c("Current Year" = "#1B9E77", "Previous Year" = "#D95F02", "Goal" = "#7570B3")) +
+      scale_linetype_manual(name = "Projections", values = c("2-Wk Avg" = "dashed", "4-Wk Avg" = "dashed", "8-Wk Avg" = "dashed")) +
       theme_minimal() +
       theme(axis.title = element_text(size = 16),
             axis.text = element_text(size = 14),
@@ -284,8 +341,45 @@ server <- function(input, output, session){
                   vjust = -1, color = "orange", size = 5, fontface = "bold")
     }
     
-    
     base_plot
+  })
+  
+  # --- NEW: Final Projection UI Boxes ---
+  output$proj_final_boxes <- renderUI({
+    req(proj_df())
+    
+    # Grab the very last row (Week 52)
+    final_data <- proj_df() %>% filter(week_of_cycle == 52)
+    
+    # Format the integers with commas
+    val_2wk <- format(round(final_data$proj_2wk), big.mark = ",")
+    val_4wk <- format(round(final_data$proj_4wk), big.mark = ",")
+    val_8wk <- format(round(final_data$proj_8wk), big.mark = ",")
+    
+    # Generate cleanly styled HTML layout to match the line colors
+    HTML(paste0(
+      "<div style='display: flex; justify-content: space-around; margin-top: 15px; margin-bottom: 15px;'>",
+      
+      # 2-Week Box (Pink)
+      "<div style='background-color: #FF3366; color: white; padding: 15px; border-radius: 8px; text-align: center; width: 30%; box-shadow: 0 4px 6px rgba(0,0,0,0.1);'>",
+      "<h6 style='margin-bottom: 5px; opacity: 0.9;'>Final Projected (2-Wk Avg)</h6>",
+      "<h3 style='font-weight: bold; margin: 0;'>", val_2wk, "</h3>",
+      "</div>",
+      
+      # 4-Week Box (Cyan)
+      "<div style='background-color: #00C4CC; color: white; padding: 15px; border-radius: 8px; text-align: center; width: 30%; box-shadow: 0 4px 6px rgba(0,0,0,0.1);'>",
+      "<h6 style='margin-bottom: 5px; opacity: 0.9;'>Final Projected (4-Wk Avg)</h6>",
+      "<h3 style='font-weight: bold; margin: 0;'>", val_4wk, "</h3>",
+      "</div>",
+      
+      # 8-Week Box (Purple)
+      "<div style='background-color: #6633FF; color: white; padding: 15px; border-radius: 8px; text-align: center; width: 30%; box-shadow: 0 4px 6px rgba(0,0,0,0.1);'>",
+      "<h6 style='margin-bottom: 5px; opacity: 0.9;'>Final Projected (8-Wk Avg)</h6>",
+      "<h3 style='font-weight: bold; margin: 0;'>", val_8wk, "</h3>",
+      "</div>",
+      
+      "</div>"
+    ))
   })
   
   # --- Table rendering ---
@@ -307,28 +401,20 @@ server <- function(input, output, session){
       select(Year, Date, Week, `Weekly Enrollment`, `Cumulative enrollments`)
   })
   
-  
   output$graphtotal <- renderPlot({
     req(graph_total())
     ggplot(data = NULL) +
-      geom_rect(aes(xmin = 8,xmax = 14, ymin = -Inf, ymax = Inf),
-                fill = "grey", 
-                alpha = 0.2) +
+      geom_rect(aes(xmin = 8,xmax = 14, ymin = -Inf, ymax = Inf), fill = "grey", alpha = 0.2) +
       annotate("text", x = 11, y = 90000, label = "PM1", size = 9) +
-      geom_rect(aes(xmin = 25,xmax = 31, ymin = -Inf, ymax = Inf),
-                fill = "grey", 
-                alpha = 0.2) +
+      geom_rect(aes(xmin = 25,xmax = 31, ymin = -Inf, ymax = Inf), fill = "grey", alpha = 0.2) +
       annotate("text", x = 28, y = 90000, label = "PM2", size = 9) +
-      geom_rect(aes(xmin = 44,xmax = 49, ymin = -Inf, ymax = Inf),
-                fill = "grey", alpha = 0.2) +
+      geom_rect(aes(xmin = 44,xmax = 49, ymin = -Inf, ymax = Inf), fill = "grey", alpha = 0.2) +
       annotate("text", x = 46.5, y = 90000, label = "PM3", size = 9) +
       geom_area(data = graph_total(),
                 aes(x = week_of_cycle, y = cumulative_applicants, fill = Year),
-                position = "identity", 
-                alpha = 0.8) +
+                position = "identity", alpha = 0.8) +
       annotate("text", x = Inf, y = Inf,
-               label = paste0("New enrolled students: ",
-                              format(total_new_enroll(), big.mark = ",")),
+               label = paste0("New enrolled students: ", format(total_new_enroll(), big.mark = ",")),
                hjust = 1.3, vjust = 14, size = 9, color = "black") +
       labs(title = "Enrollment Over Time", x = "Weeks", y = "Enrollment") +
       theme_minimal() +
@@ -340,10 +426,8 @@ server <- function(input, output, session){
   output$grade <- renderPlot({
     req(gradelevels())
     ggplot(data = gradelevels()) +
-      geom_line(aes(x = week_of_cycle, y = cumulative_applicants, color = Grade),
-                size = 1.5) +
-      geom_point(aes(x = week_of_cycle, y = cumulative_applicants,
-                     fill = Grade), size = 3, pch = 21, color = "white") +
+      geom_line(aes(x = week_of_cycle, y = cumulative_applicants, color = Grade), size = 1.5) +
+      geom_point(aes(x = week_of_cycle, y = cumulative_applicants, fill = Grade), size = 3, pch = 21, color = "white") +
       facet_wrap(~Year, nrow = 2, scales = "free_y") +
       labs(title = "Enrollment Over Time", x = "Weeks", y = "Enrollment") +
       theme_minimal() +
