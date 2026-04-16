@@ -104,11 +104,16 @@ jobs:
 
       - name: Install R packages and Force Rcpp Source
         run: |
-          # 1. Install everything normally (this uses the fast binaries)
           Rscript -e "install.packages(c('curl','scales','shiny','dplyr','ggplot2','tidyr','lubridate','rsconnect','viridis','bslib'), repos='https://cloud.r-project.org')"
-          
-          # 2. Force a clean source installation of Rcpp to permanently strip the malicious '-1' suffix
           Rscript -e "install.packages('Rcpp', type='source', repos='https://cloud.r-project.org')"
+
+      - name: Nuke ghost environment files
+        run: |
+          echo "Hunting and deleting lockfiles that override rsconnect..."
+          find . -name "renv.lock" -type f -delete -print
+          find . -name "manifest.json" -type f -delete -print
+          find . -name "packrat.lock" -type f -delete -print
+          find . -name ".Rprofile" -type f -delete -print
 
       - name: Deploy to shinyapps.io
         env:
