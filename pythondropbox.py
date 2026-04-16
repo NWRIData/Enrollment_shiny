@@ -1,13 +1,15 @@
-# dropbox_api.py
-
 import os
 import dropbox
 from datetime import datetime
 
-# Set your credentials (ideally use GitHub secrets)
-DROPBOX_REFRESH_TOKEN = "mWzxICjMxBUAAAAAAAAAAdKPMzxFnLqIVnJA5W77OGLc1mO6_6pnmXxfRQIy1S4b"
-DROPBOX_APP_KEY = "7irn2mcwov0dslk"
-DROPBOX_APP_SECRET = "hj13ag9wj44pah6"
+# Fetch credentials from the runner's environment variables
+DROPBOX_REFRESH_TOKEN = os.environ.get("DROPBOX_REFRESH_TOKEN")
+DROPBOX_APP_KEY = os.environ.get("DROPBOX_APP_KEY")
+DROPBOX_APP_SECRET = os.environ.get("DROPBOX_APP_SECRET")
+
+# Quick safety check to make sure they loaded correctly
+if not all([DROPBOX_REFRESH_TOKEN, DROPBOX_APP_KEY, DROPBOX_APP_SECRET]):
+    raise ValueError("Missing Dropbox credentials! Check your GitHub Secrets.")
 
 # Authenticate
 dbx = dropbox.Dropbox(
@@ -28,11 +30,24 @@ if not files:
 files.sort(key=lambda x: x.server_modified, reverse=True)
 latest = files[0]
 
-
-# Create output dir and download
+# Create output dir
 os.makedirs("tracker/data", exist_ok=True)
 local_path = os.path.join("tracker/data", latest.name)
 
-dbx.files_download_to_file(local_path, latest.path_display)
-
-print(f"Downloaded {latest.name} to {local_path}")
+# --- SMART POLLING LOGIC ---
+if os.path.exists(local_path):
+    print(f"Latest file '{latest.name}' already exists locally. No new data.")
+    
+    # Send a "false" signal to GitHub Actions
+    if "GITHUB_OUTPUT" in os.environ:
+        with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+            f.write("new_data=false\n")
+else:
+    print(f"New file detected: '{latest.name}'. Downloading...")
+    dbx.files_download_to_file(local_path, latest.path_display)
+    print(f"Successfully downloaded to {local_path}")
+    
+    # Send a "true" signal to GitHub Actions
+    if "GITHUB_OUTPUT" in os.environ:
+        with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+            f.write("new_data=true\n")

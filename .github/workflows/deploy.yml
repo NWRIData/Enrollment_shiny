@@ -14,6 +14,8 @@ jobs:
   download:
     name: Download Data from Dropbox
     runs-on: ubuntu-latest
+    outputs:
+      new_data: ${{ steps.fetch.outputs.new_data }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -28,9 +30,23 @@ jobs:
           pip3 install dropbox
 
       - name: Run Python download script
+        id: fetch  
+        env: 
+          DROPBOX_REFRESH_TOKEN: ${{ secrets.DROPBOX_REFRESH_TOKEN }}
+          DROPBOX_APP_KEY: ${{ secrets.DROPBOX_APP_KEY }}
+          DROPBOX_APP_SECRET: ${{ secrets.DROPBOX_APP_SECRET }}
         run: python pythondropbox.py
 
+      # --- NEW: Visual confirmation when the workflow aborts ---
+      - name: Report no new data
+        if: steps.fetch.outputs.new_data == 'false'
+        run: |
+          echo "No new files were found in Dropbox."
+          echo "### Pipeline Aborted 🛑" >> $GITHUB_STEP_SUMMARY
+          echo "The newest file on Dropbox is already in the repository. The workflow will stop here to save compute time." >> $GITHUB_STEP_SUMMARY
+
       - name: Commit and push downloaded data
+        if: steps.fetch.outputs.new_data == 'true'  
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -44,6 +60,7 @@ jobs:
   process_data:
     name: Process R Data
     needs: download
+    if: needs.download.outputs.new_data == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
