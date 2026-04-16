@@ -95,7 +95,6 @@ jobs:
         uses: r-lib/actions/setup-r@v2
         with:
           r-version: '4.4.2'
-          use-public-rspm: false  # This disables the problematic binaries
 
       - name: Install system deps
         run: |
@@ -103,18 +102,13 @@ jobs:
           sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev \
                                   libpng-dev libjpeg-dev libfreetype6-dev
 
-      - name: Cache R packages
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.R_LIBS_USER }}
-          key: ${{ runner.os }}-r-4.4.2-deploy-deps
-          restore-keys: |
-            ${{ runner.os }}-r-4.4.2-deploy-deps
-
-      - name: Install R packages
+      - name: Install R packages and Force Rcpp Source
         run: |
-          Rscript -e "install.packages('remotes', repos='https://cloud.r-project.org')"
-          Rscript -e "remotes::install_cran(c('curl','scales','shiny','dplyr','ggplot2','tidyr','lubridate','rsconnect','viridis','bslib'), dependencies=TRUE)"
+          # 1. Install everything normally (this uses the fast binaries)
+          Rscript -e "install.packages(c('curl','scales','shiny','dplyr','ggplot2','tidyr','lubridate','rsconnect','viridis','bslib'), repos='https://cloud.r-project.org')"
+          
+          # 2. Force a clean source installation of Rcpp to permanently strip the malicious '-1' suffix
+          Rscript -e "install.packages('Rcpp', type='source', repos='https://cloud.r-project.org')"
 
       - name: Deploy to shinyapps.io
         env:
