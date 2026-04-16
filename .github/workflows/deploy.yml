@@ -109,6 +109,20 @@ jobs:
           Rscript -e "install.packages('remotes', repos='https://cloud.r-project.org')"
           Rscript -e "remotes::install_cran(c('curl','scales','shiny','dplyr','ggplot2','tidyr','lubridate','rsconnect','viridis','bslib'), dependencies=TRUE)"
 
+      - name: Strip binary suffixes from package versions
+        run: |
+          Rscript -e '
+            for (pkg in list.dirs(.libPaths()[1], recursive = FALSE)) {
+              dcf <- file.path(pkg, "DESCRIPTION")
+              if (file.exists(dcf)) {
+                desc <- read.dcf(dcf)
+                if (grepl("-", desc[1, "Version"])) {
+                  desc[1, "Version"] <- gsub("-.*", "", desc[1, "Version"])
+                  write.dcf(desc, file = dcf)
+                }
+              }
+            }'
+
       - name: Deploy to shinyapps.io
         env:
           SHINYAPPS_NAME: ${{ secrets.SHINYAPPS_NAME }}
