@@ -11,11 +11,9 @@ on:
   workflow_dispatch:
 
 jobs:
-  download:
-    name: Download Data from Dropbox
+  run_pipeline:
+    name: Fetch and Process Data
     runs-on: ubuntu-latest
-    outputs:
-      new_data: ${{ steps.fetch.outputs.new_data }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -23,12 +21,17 @@ jobs:
           persist-credentials: true
           fetch-depth: 0
 
-      - name: Install Python + Dropbox SDK
+      # --- 1. SET UP EVERYTHING ---
+      - name: Setup R
+        uses: r-lib/actions/setup-r@v2
+
+      - name: Install system deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-pip
+          sudo apt-get install -y python3-pip libcurl4-openssl-dev libssl-dev libxml2-dev libpng-dev libjpeg-dev libfreetype6-dev
           pip3 install dropbox
 
+      # --- 2. CHECK FOR NEW DATA ---
       - name: Run Python download script
         id: fetch  
         env: 
@@ -37,63 +40,30 @@ jobs:
           DROPBOX_APP_SECRET: ${{ secrets.DROPBOX_APP_SECRET }}
         run: python pythondropbox.py
 
-      # --- NEW: Visual confirmation when the workflow aborts ---
       - name: Report no new data
         if: steps.fetch.outputs.new_data == 'false'
         run: |
-          echo "No new files were found in Dropbox."
           echo "### Pipeline Aborted 🛑" >> $GITHUB_STEP_SUMMARY
           echo "The newest file on Dropbox is already in the repository. The workflow will stop here to save compute time." >> $GITHUB_STEP_SUMMARY
 
-      - name: Commit and push downloaded data
-        if: steps.fetch.outputs.new_data == 'true'  
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          
-          git add tracker/data/
-          
-          git diff --cached --quiet && exit 0
-          git commit -m "Downloaded latest data from Dropbox"
-          git push origin main
-
-  process_data:
-    name: Process R Data
-    needs: download
-    if: needs.download.outputs.new_data == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: true
-          fetch-depth: 0
-
-      - name: Setup R
-        uses: r-lib/actions/setup-r@v2
-
-      - name: Install system deps
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev \
-                                  libpng-dev libjpeg-dev libfreetype6-dev
-
-      - name: Install minimal R packages
-        run: |
-          Rscript -e 'install.packages(c("dplyr","tidyr","here"), repos="https://cloud.r-project.org")'
+      # --- 3. PROCESS DATA (Only runs if new data was found) ---
+      - name: Install R packages
+        if: steps.fetch.outputs.new_data == 'true'
+        run: Rscript -e 'install.packages(c("dplyr","tidyr","here"), repos="https://cloud.r-project.org")'
 
       - name: Run R data processing
+        if: steps.fetch.outputs.new_data == 'true'
         run: Rscript data_processing.R
 
-      - name: Commit and push processed data
+      # --- 4. COMMIT EVERYTHING AT ONCE (Only runs if R script succeeded) ---
+      - name: Commit and push all data
+        if: steps.fetch.outputs.new_data == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          git add tracker/data/
-
-          git diff --cached --quiet && exit 0
-          git commit -m "Processed daily R data $(date -u +'%Y-%m-%d')"
           
-          git pull --rebase origin main
-          git push origin HEAD:main
+          git add tracker/data/
+          
+          git diff --cached --quiet && exit 0
+          git commit -m "Processed new Dropbox data $(date -u +'%Y-%m-%d')"
+          git push origin main

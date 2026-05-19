@@ -7,7 +7,6 @@ DROPBOX_REFRESH_TOKEN = os.environ.get("DROPBOX_REFRESH_TOKEN")
 DROPBOX_APP_KEY = os.environ.get("DROPBOX_APP_KEY")
 DROPBOX_APP_SECRET = os.environ.get("DROPBOX_APP_SECRET")
 
-# Quick safety check to make sure they loaded correctly
 if not all([DROPBOX_REFRESH_TOKEN, DROPBOX_APP_KEY, DROPBOX_APP_SECRET]):
     raise ValueError("Missing Dropbox credentials! Check your GitHub Secrets.")
 
@@ -21,13 +20,18 @@ dbx = dropbox.Dropbox(
 
 # List files in folder
 res = dbx.files_list_folder("/Enrollment Data")
-files = [entry for entry in res.entries if hasattr(entry, "server_modified")]
+
+# Filter only for .csv files
+files = [
+    entry for entry in res.entries 
+    if hasattr(entry, "server_modified") and entry.name.lower().endswith(".csv")
+]
 
 if not files:
-    raise Exception("No files found in /Enrollment Data.")
+    raise Exception("No .csv files found in /Enrollment Data.")
 
-# Sort by server_modified time
-files.sort(key=lambda x: x.server_modified, reverse=True)
+# Sort chronologically by filename, ignoring Dropbox timestamps
+files.sort(key=lambda x: x.name.lower(), reverse=True)
 latest = files[0]
 
 # Create output dir
@@ -38,7 +42,6 @@ local_path = os.path.join("tracker/data", latest.name)
 if os.path.exists(local_path):
     print(f"Latest file '{latest.name}' already exists locally. No new data.")
     
-    # Send a "false" signal to GitHub Actions
     if "GITHUB_OUTPUT" in os.environ:
         with open(os.environ["GITHUB_OUTPUT"], "a") as f:
             f.write("new_data=false\n")
@@ -47,7 +50,6 @@ else:
     dbx.files_download_to_file(local_path, latest.path_display)
     print(f"Successfully downloaded to {local_path}")
     
-    # Send a "true" signal to GitHub Actions
     if "GITHUB_OUTPUT" in os.environ:
         with open(os.environ["GITHUB_OUTPUT"], "a") as f:
             f.write("new_data=true\n")
