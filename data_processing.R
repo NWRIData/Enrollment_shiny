@@ -283,7 +283,12 @@ saveRDS(pm_window, file = here("tracker", "data","PM_window_info",paste0("pm_win
 
 saveRDS(totaldata, file = here("tracker", "data","total_data",paste0("totaldata",date,".rds")))
 
+#this is if we want to use cumulative numbers that include the difference in starting points
+#diff_total<-totaldata %>%
+  #filter(week_of_cycle == max_week_curr) %>%
+  #pivot_wider(id_cols = week_of_cycle, names_from = Year, values_from = c(n, cumulative_n_includingold))
 
+#this is if we want to use cumulative numbers that don't include the difference in starting points
 diff_total<-totaldata %>%
   filter(week_of_cycle == max_week_curr) %>%
   pivot_wider(id_cols = week_of_cycle, names_from = Year, values_from = c(n, cumulative_applicants))
