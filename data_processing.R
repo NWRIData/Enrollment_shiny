@@ -5,12 +5,10 @@ library(here)
 #establish date of the system for file labelling
 date<-Sys.Date()
 
-
 #this script processes the data for the shiny app to use
 #load old data
 olddata <- read.csv(here("tracker", "data","Y4_data","olddata_test.csv"))
 district_code_data <- readRDS(here("tracker", "data","MSID","MSID_08112025.rds"))
-
 
 last_processed_path <- here("tracker", "data", "last_processed.txt")
 
@@ -68,10 +66,12 @@ constant<-recentdata %>%
 
 #save lost kids data:
 
-saveRDS(lostkids, file = here("tracker", "data","lostkids","raw", paste0("lost_kids_raw",date,".rds")))
+saveRDS(lostkids, 
+  file = here("tracker", "data","lostkids","raw", paste0("lost_kids_raw",date,".rds")))
 
 no_lost_kids<-nrow(lostkids)
-saveRDS(no_lost_kids, file = here("tracker", "data","lostkids","count", paste0("lost_kids_count",date,".rds")))
+saveRDS(no_lost_kids, 
+  file = here("tracker", "data","lostkids","count", paste0("lost_kids_count",date,".rds")))
 
 #save a copy for grade levels
 recentdatacopy<-recentdata
@@ -363,7 +363,5 @@ district_df_current <- app_data_enrolled %>%
   mutate(Year = "Current year")
 
 district_data<-rbind(district_df_old, district_df_current)
-
-
 
 saveRDS(district_data, file = here("tracker", "data","district_df",paste0("district_df",date,".rds")))
